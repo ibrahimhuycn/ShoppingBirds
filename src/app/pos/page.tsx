@@ -11,22 +11,13 @@ import { formatCurrency, generateInvoiceNumber } from "@/lib/utils"
 import { getTranslations, useTranslation } from "@/lib/i18n"
 import { defaultLocale } from "@/lib/i18n/config"
 import { toast } from "sonner"
+import type { Database } from "@/types/database"
 
-interface Store {
-  id: number
-  name: string
-}
-
-interface Unit {
-  id: number
-  unit: string
-  description: string
-}
-
-interface Item {
-  id: number
-  description: string
-}
+// Use proper Supabase types
+type Store = Database['public']['Tables']['stores']['Row']
+type Unit = Database['public']['Tables']['units']['Row']
+type Item = Database['public']['Tables']['items']['Row']
+type PriceListRow = Database['public']['Tables']['price_lists']['Row']
 
 interface CartItem {
   id: number
@@ -37,12 +28,7 @@ interface CartItem {
   unit: string
 }
 
-interface PriceListItem {
-  id: number
-  item_id: number
-  barcode: string
-  retail_price: number
-  unit_id: number
+interface PriceListItem extends PriceListRow {
   items: { description: string }
   units: { unit: string }
 }
@@ -55,7 +41,7 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [adjustAmount, setAdjustAmount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [translations, setTranslations] = useState<any>(null)
+  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
 
   useEffect(() => {
     loadInitialData()
@@ -272,11 +258,11 @@ export default function POSPage() {
     }
   }
 
+  const { t } = useTranslation(defaultLocale, translations)
+
   if (!translations) {
     return <div>Loading...</div>
   }
-
-  const { t } = useTranslation(defaultLocale, translations)
 
   return (
     <div className="space-y-6">

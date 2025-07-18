@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,32 +10,15 @@ import { supabase } from "@/lib/supabase"
 import { formatCurrency } from "@/lib/utils"
 import { getTranslations, useTranslation } from "@/lib/i18n"
 import { defaultLocale } from "@/lib/i18n/config"
+import type { Database } from "@/types/database"
 
-interface Item {
-  id: number
-  description: string
-  created_at: string
-  updated_at: string
-}
+// Use proper Supabase types
+type Item = Database['public']['Tables']['items']['Row']
+type Store = Database['public']['Tables']['stores']['Row']
+type Unit = Database['public']['Tables']['units']['Row']
+type PriceListRow = Database['public']['Tables']['price_lists']['Row']
 
-interface Store {
-  id: number
-  name: string
-}
-
-interface Unit {
-  id: number
-  unit: string
-  description: string
-}
-
-interface PriceList {
-  id: number
-  item_id: number
-  barcode: string
-  store_id: number
-  retail_price: number
-  unit_id: number
+interface PriceList extends PriceListRow {
   stores: { name: string }
   units: { unit: string; description: string }
 }
@@ -74,17 +57,22 @@ export default function ItemsPage() {
     retail_price: "",
     unit_id: "",
   })
-  const [translations, setTranslations] = useState<any>(null)
+  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
 
-  useEffect(() => {
-    loadInitialData()
+  const loadInitialData = useCallback(async (): Promise<void> => {
+    try {
+      // Load translations
+      const trans = await getTranslations(defaultLocale)
+      setTranslations(trans)
+
+      // Load all data
+      await Promise.all([loadItems(), loadStores(), loadUnits()])
+    } catch (error) {
+      console.error("Error loading initial data:", error)
+    }
   }, [])
 
-  useEffect(() => {
-    filterAndPaginateItems()
-  }, [items, searchQuery, pagination.currentPage, pagination.itemsPerPage])
-
-  const filterAndPaginateItems = (): void => {
+  const filterAndPaginateItems = useCallback((): void => {
     let filtered = items
 
     // Apply search filter
@@ -114,20 +102,15 @@ export default function ItemsPage() {
 
     // Set paginated items
     setFilteredItems(filtered.slice(startIndex, endIndex))
-  }
+  }, [items, searchQuery, pagination.currentPage, pagination.itemsPerPage])
 
-  const loadInitialData = async (): Promise<void> => {
-    try {
-      // Load translations
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
+  useEffect(() => {
+    loadInitialData()
+  }, [loadInitialData])
 
-      // Load all data
-      await Promise.all([loadItems(), loadStores(), loadUnits()])
-    } catch (error) {
-      console.error("Error loading initial data:", error)
-    }
-  }
+  useEffect(() => {
+    filterAndPaginateItems()
+  }, [items, searchQuery, pagination.currentPage, pagination.itemsPerPage, filterAndPaginateItems])
 
   const loadItems = async (): Promise<void> => {
     setIsLoading(true)
@@ -145,7 +128,7 @@ export default function ItemsPage() {
         .order("description")
 
       if (error) throw error
-      setItems(data || [])
+      setItems((data || []) as ItemWithPrices[])
     } catch (error) {
       console.error("Error loading items:", error)
       alert("Error loading items")
@@ -330,11 +313,11 @@ export default function ItemsPage() {
     }))
   }
 
+  const { t } = useTranslation(defaultLocale, translations)
+
   if (!translations) {
     return <div>Loading...</div>
   }
-
-  const { t } = useTranslation(defaultLocale, translations)
 
   return (
     <div className="space-y-6">

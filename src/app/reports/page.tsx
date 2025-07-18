@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,13 @@ import { supabase } from "@/lib/supabase"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { getTranslations, useTranslation } from "@/lib/i18n"
 import { defaultLocale } from "@/lib/i18n/config"
+import type { Database } from "@/types/database"
+
+// Use proper Supabase types
+type Invoice = Database['public']['Tables']['invoices']['Row']
+type InvoiceDetail = Database['public']['Tables']['invoice_details']['Row']
+type Item = Database['public']['Tables']['items']['Row']
+type Store = Database['public']['Tables']['stores']['Row']
 
 interface TransactionRecord {
   invoice_id: number
@@ -43,26 +50,9 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [translations, setTranslations] = useState<any>(null)
+  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
 
-  useEffect(() => {
-    loadInitialData()
-  }, [])
-
-  const loadInitialData = async (): Promise<void> => {
-    try {
-      // Load translations
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
-
-      // Load all transactions
-      await loadTransactions()
-    } catch (error) {
-      console.error("Error loading initial data:", error)
-    }
-  }
-
-  const loadTransactions = async (start?: string, end?: string): Promise<void> => {
+  const loadTransactions = useCallback(async (start?: string, end?: string): Promise<void> => {
     setIsLoading(true)
     try {
       let query = supabase
@@ -99,30 +89,48 @@ export default function ReportsPage() {
       let totalRevenue = 0
       let totalItems = 0
 
-	data?.forEach((invoice) => {
-	  invoice.invoice_details.forEach((detail) => {
-		// Loop through each item within the invoice detail
-		detail.items.forEach((item) => {
-		  transformedData.push({
-			invoice_id: invoice.id,
-			invoice_number: invoice.number,
-			item_id: item.id, // Correct: Access id from the individual 'item'
-			item_name: item.description, // Correct: Access description from the individual 'item'
-			store_id: 0, // This might need to come from the invoice or item
-			store: invoice.stores && invoice.stores.length > 0 ? invoice.stores[0].name : 'N/A', // Provides a fallback
-			invoice_details_id: detail.id,
-			quantity: detail.quantity,
-			rate: detail.price,
-			adjust_amount: invoice.adjust_amount,
-			total: invoice.total,
-			invoice_date: invoice.date,
-		  });
-		});
-	  });
-	  totalRevenue += invoice.total;
-	  // Note: This calculation might need adjustment based on the new logic
-	  totalItems += invoice.invoice_details.reduce((sum, detail) => sum + detail.items.length, 0);
-	});
+      data?.forEach((invoice) => {
+        invoice.invoice_details.forEach((detail) => {
+          // Handle items as array and take the first (and should be only) item
+          const items = detail.items
+          if (items && Array.isArray(items) && items.length > 0) {
+            const item = items[0] // Take the first item
+            transformedData.push({
+              invoice_id: invoice.id,
+              invoice_number: invoice.number,
+              item_id: item.id,
+              item_name: item.description,
+              store_id: 0, // This might need to come from the invoice or stores relation
+              store: (invoice.stores as any)?.name || 'N/A',
+              invoice_details_id: detail.id,
+              quantity: detail.quantity,
+              rate: detail.price,
+              adjust_amount: invoice.adjust_amount,
+              total: invoice.total,
+              invoice_date: invoice.date,
+            })
+          } else if (items && !Array.isArray(items)) {
+            // Handle case where items is a single object (not array)
+            const item = items as any
+            transformedData.push({
+              invoice_id: invoice.id,
+              invoice_number: invoice.number,
+              item_id: item.id,
+              item_name: item.description,
+              store_id: 0,
+              store: (invoice.stores as any)?.name || 'N/A',
+              invoice_details_id: detail.id,
+              quantity: detail.quantity,
+              rate: detail.price,
+              adjust_amount: invoice.adjust_amount,
+              total: invoice.total,
+              invoice_date: invoice.date,
+            })
+          }
+        })
+        totalRevenue += invoice.total
+        totalItems += invoice.invoice_details.length
+      })
 
       setTransactions(transformedData)
       setStats({
@@ -137,7 +145,24 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  const loadInitialData = useCallback(async (): Promise<void> => {
+    try {
+      // Load translations
+      const trans = await getTranslations(defaultLocale)
+      setTranslations(trans)
+
+      // Load all transactions
+      await loadTransactions()
+    } catch (error) {
+      console.error("Error loading initial data:", error)
+    }
+  }, [loadTransactions])
+
+  useEffect(() => {
+    loadInitialData()
+  }, [loadInitialData])
 
   const filterByDateRange = (): void => {
     if (startDate || endDate) {
@@ -153,11 +178,11 @@ export default function ReportsPage() {
     loadTransactions()
   }
 
+  const { t } = useTranslation(defaultLocale, translations)
+
   if (!translations) {
     return <div>Loading...</div>
   }
-
-  const { t } = useTranslation(defaultLocale, translations)
 
   return (
     <div className="space-y-6">

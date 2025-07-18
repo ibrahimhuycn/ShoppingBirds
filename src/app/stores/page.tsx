@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,13 +9,10 @@ import { Plus, Edit, Trash2, Store, Search, ChevronLeft, ChevronRight } from "lu
 import { supabase } from "@/lib/supabase"
 import { getTranslations, useTranslation } from "@/lib/i18n"
 import { defaultLocale } from "@/lib/i18n/config"
+import type { Database } from "@/types/database"
 
-interface Store {
-  id: number
-  name: string
-  created_at: string
-  updated_at: string
-}
+// Use proper Supabase types
+type Store = Database['public']['Tables']['stores']['Row']
 
 interface PaginationInfo {
   currentPage: number
@@ -38,17 +35,22 @@ export default function StoresPage() {
     totalItems: 0,
     itemsPerPage: 6
   })
-  const [translations, setTranslations] = useState<any>(null)
+  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
 
-  useEffect(() => {
-    loadInitialData()
+  const loadInitialData = useCallback(async (): Promise<void> => {
+    try {
+      // Load translations
+      const trans = await getTranslations(defaultLocale)
+      setTranslations(trans)
+
+      // Load stores
+      await loadStores()
+    } catch (error) {
+      console.error("Error loading initial data:", error)
+    }
   }, [])
 
-  useEffect(() => {
-    filterAndPaginateStores()
-  }, [stores, searchQuery, pagination.currentPage, pagination.itemsPerPage])
-
-  const filterAndPaginateStores = (): void => {
+  const filterAndPaginateStores = useCallback((): void => {
     let filtered = stores
 
     // Apply search filter
@@ -75,20 +77,15 @@ export default function StoresPage() {
 
     // Set paginated stores
     setFilteredStores(filtered.slice(startIndex, endIndex))
-  }
+  }, [stores, searchQuery, pagination.currentPage, pagination.itemsPerPage])
 
-  const loadInitialData = async (): Promise<void> => {
-    try {
-      // Load translations
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
+  useEffect(() => {
+    loadInitialData()
+  }, [loadInitialData])
 
-      // Load stores
-      await loadStores()
-    } catch (error) {
-      console.error("Error loading initial data:", error)
-    }
-  }
+  useEffect(() => {
+    filterAndPaginateStores()
+  }, [stores, searchQuery, pagination.currentPage, pagination.itemsPerPage, filterAndPaginateStores])
 
   const loadStores = async (): Promise<void> => {
     setIsLoading(true)
@@ -202,11 +199,11 @@ export default function StoresPage() {
     }))
   }
 
+  const { t } = useTranslation(defaultLocale, translations)
+
   if (!translations) {
     return <div>Loading...</div>
   }
-
-  const { t } = useTranslation(defaultLocale, translations)
 
   return (
     <div className="space-y-6">

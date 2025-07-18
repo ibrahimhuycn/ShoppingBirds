@@ -21,6 +21,10 @@ import {
   Monitor
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import type { Database as DatabaseType } from "@/types/database"
+
+// Use proper Supabase types
+type Store = DatabaseType['public']['Tables']['stores']['Row']
 
 interface SettingsData {
   defaultCurrency: string
@@ -31,11 +35,6 @@ interface SettingsData {
   receiptPrinter: string
   backupFrequency: string
   lowStockAlert: number
-}
-
-interface Store {
-  id: number
-  name: string
 }
 
 export default function SettingsPage() {
@@ -75,9 +74,15 @@ export default function SettingsPage() {
 
   const loadSettings = (): void => {
     // Load settings from localStorage or default values
-    const savedSettings = localStorage.getItem("shoppingbird_settings")
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings))
+    if (typeof window !== 'undefined') {
+      const savedSettings = localStorage.getItem("shoppingbird_settings")
+      if (savedSettings) {
+        try {
+          setSettings(JSON.parse(savedSettings))
+        } catch (error) {
+          console.error("Error parsing saved settings:", error)
+        }
+      }
     }
   }
 
@@ -85,17 +90,21 @@ export default function SettingsPage() {
     setIsLoading(true)
     try {
       // Save to localStorage (in a real app, you'd save to database)
-      localStorage.setItem("shoppingbird_settings", JSON.stringify(settings))
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("shoppingbird_settings", JSON.stringify(settings))
+      }
       
       // Apply theme changes
-      if (settings.theme === "dark") {
-        document.documentElement.classList.add("dark")
-      } else if (settings.theme === "light") {
-        document.documentElement.classList.remove("dark")
-      } else {
-        // System theme
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-        document.documentElement.classList.toggle("dark", prefersDark)
+      if (typeof window !== 'undefined') {
+        if (settings.theme === "dark") {
+          document.documentElement.classList.add("dark")
+        } else if (settings.theme === "light") {
+          document.documentElement.classList.remove("dark")
+        } else {
+          // System theme
+          const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+          document.documentElement.classList.toggle("dark", prefersDark)
+        }
       }
       
       alert("Settings saved successfully!")

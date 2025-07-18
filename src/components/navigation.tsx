@@ -19,7 +19,7 @@ const navigationItems = [
 ]
 
 export function Navigation() {
-  const [translations, setTranslations] = useState<any>(null)
+  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
   
   useEffect(() => {
     const loadTranslations = async () => {
@@ -29,7 +29,7 @@ export function Navigation() {
     loadTranslations()
   }, [])
   
-  const t = translations ? useTranslation(defaultLocale, translations).t : (key: string) => key
+  const { t } = useTranslation(defaultLocale, translations)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false)
   const pathname = usePathname()
 
