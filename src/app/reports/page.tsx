@@ -99,26 +99,30 @@ export default function ReportsPage() {
       let totalRevenue = 0
       let totalItems = 0
 
-      data?.forEach((invoice) => {
-        invoice.invoice_details.forEach((detail) => {
-          transformedData.push({
-            invoice_id: invoice.id,
-            invoice_number: invoice.number,
-            item_id: detail.items.id,
-            item_name: detail.items.description,
-            store_id: 0, // From invoice
-            store: invoice.stores.name,
-            invoice_details_id: detail.id,
-            quantity: detail.quantity,
-            rate: detail.price,
-            adjust_amount: invoice.adjust_amount,
-            total: invoice.total,
-            invoice_date: invoice.date,
-          })
-        })
-        totalRevenue += invoice.total
-        totalItems += invoice.invoice_details.length
-      })
+	data?.forEach((invoice) => {
+	  invoice.invoice_details.forEach((detail) => {
+		// Loop through each item within the invoice detail
+		detail.items.forEach((item) => {
+		  transformedData.push({
+			invoice_id: invoice.id,
+			invoice_number: invoice.number,
+			item_id: item.id, // Correct: Access id from the individual 'item'
+			item_name: item.description, // Correct: Access description from the individual 'item'
+			store_id: 0, // This might need to come from the invoice or item
+			store: invoice.stores && invoice.stores.length > 0 ? invoice.stores[0].name : 'N/A', // Provides a fallback
+			invoice_details_id: detail.id,
+			quantity: detail.quantity,
+			rate: detail.price,
+			adjust_amount: invoice.adjust_amount,
+			total: invoice.total,
+			invoice_date: invoice.date,
+		  });
+		});
+	  });
+	  totalRevenue += invoice.total;
+	  // Note: This calculation might need adjustment based on the new logic
+	  totalItems += invoice.invoice_details.reduce((sum, detail) => sum + detail.items.length, 0);
+	});
 
       setTransactions(transformedData)
       setStats({
