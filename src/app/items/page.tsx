@@ -4,12 +4,19 @@ import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2, Package, DollarSign, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, Edit, Trash2, Package, DollarSign, Search, ChevronLeft, ChevronRight, Scan, Tag } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { formatCurrency } from "@/lib/utils"
 import { getTranslations, useTranslation } from "@/lib/i18n"
 import { defaultLocale } from "@/lib/i18n/config"
+import { UPCLookupComponent } from "@/components/ui/upc-lookup"
+import { EnhancedItemForm } from "@/components/ui/enhanced-item-form"
+import { TagsManager } from "@/components/ui/tags-manager"
+import { PriceManager } from "@/components/ui/price-manager"
+import { productEnhancementService, EnhancedProductData } from "@/lib/product-enhancement"
+import { toast } from "sonner"
 import type { Database } from "@/types/database"
 
 // Use proper Supabase types
@@ -25,6 +32,14 @@ interface PriceList extends PriceListRow {
 
 interface ItemWithPrices extends Item {
   price_lists: PriceList[]
+  item_tags?: {
+    tags: {
+      id: number
+      name: string
+      tag_type: string
+      color: string | null
+    }
+  }[]
 }
 
 interface PaginationInfo {
@@ -41,7 +56,11 @@ export default function ItemsPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isAdding, setIsAdding] = useState<boolean>(false)
+  const [isAddingWithUPC, setIsAddingWithUPC] = useState<boolean>(false)
+  const [isAddingEnhanced, setIsAddingEnhanced] = useState<boolean>(false)
   const [editingItem, setEditingItem] = useState<Item | null>(null)
+  const [showTagsManager, setShowTagsManager] = useState<boolean>(false)
+  const [managingPricesFor, setManagingPricesFor] = useState<number | null>(null)
   const [newItemDescription, setNewItemDescription] = useState<string>("")
   const [addingPriceFor, setAddingPriceFor] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
@@ -123,6 +142,14 @@ export default function ItemsPage() {
             *,
             stores (name),
             units (unit, description)
+          ),
+          item_tags (
+            tags (
+              id,
+              name,
+              tag_type,
+              color
+            )
           )
         `)
         .order("description")
@@ -131,7 +158,7 @@ export default function ItemsPage() {
       setItems((data || []) as ItemWithPrices[])
     } catch (error) {
       console.error("Error loading items:", error)
-      alert("Error loading items")
+      toast.error('Failed to load items')
     } finally {
       setIsLoading(false)
     }
@@ -186,9 +213,66 @@ export default function ItemsPage() {
       setItems([...items, newItem])
       setNewItemDescription("")
       setIsAdding(false)
+      toast.success('Item added successfully')
     } catch (error) {
       console.error("Error adding item:", error)
-      alert("Error adding item")
+      toast.error('Failed to add item')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEnhancedSave = async (data: any): Promise<void> => {
+    setIsLoading(true)
+    try {
+      const { data: newItem, error } = await supabase
+        .from('items')
+        .insert(data)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      const itemWithPrices: ItemWithPrices = {
+        ...newItem,
+        price_lists: []
+      }
+
+      setItems([...items, itemWithPrices])
+      setIsAddingEnhanced(false)
+      toast.success('Enhanced item created successfully')
+    } catch (error) {
+      console.error('Error creating enhanced item:', error)
+      toast.error('Failed to create enhanced item')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEnhancedUpdate = async (data: any): Promise<void> => {
+    if (!editingItem) return
+    
+    setIsLoading(true)
+    try {
+      const { data: updatedItem, error } = await supabase
+        .from('items')
+        .update(data)
+        .eq('id', editingItem.id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setItems(items.map(item => 
+        item.id === editingItem.id 
+          ? { ...item, ...updatedItem }
+          : item
+      ))
+      setEditingItem(null)
+      toast.success('Item updated successfully')
+    } catch (error) {
+      console.error('Error updating item:', error)
+      toast.error('Failed to update item')
     } finally {
       setIsLoading(false)
     }
@@ -313,6 +397,35 @@ export default function ItemsPage() {
     }))
   }
 
+  // UPC Integration Handlers
+  const handleUPCProductFound = async (enhancedData: EnhancedProductData): Promise<void> => {
+    try {
+      setIsLoading(true)
+      const newItem = await productEnhancementService.createEnhancedItem(enhancedData)
+      
+      const itemWithPrices: ItemWithPrices = {
+        ...newItem,
+        price_lists: []
+      }
+      
+      setItems([...items, itemWithPrices])
+      setIsAddingWithUPC(false)
+      toast.success(`Item created: ${newItem.title || newItem.description}`)
+    } catch (error) {
+      console.error('Error creating enhanced item:', error)
+      toast.error('Failed to create item with UPC data')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUPCProductNotFound = (upc: string): void => {
+    toast.warning(`Product not found for UPC: ${upc}. You can still add it manually.`)
+    setNewItemDescription('')
+    setIsAddingWithUPC(false)
+    setIsAdding(true) // Switch to manual add
+  }
+
   const { t } = useTranslation(defaultLocale, translations)
 
   if (!translations) {
@@ -323,13 +436,39 @@ export default function ItemsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{t("items.title")}</h1>
-        <Button
-          onClick={() => setIsAdding(true)}
-          disabled={isAdding}
-        >
-          <Plus className="size-4 mr-2" />
-          {t("items.addItem")}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowTagsManager(!showTagsManager)}
+            variant="outline"
+            size="sm"
+          >
+            <Tag className="size-4 mr-2" />
+            {showTagsManager ? 'Hide Tags' : 'Manage Tags'}
+          </Button>
+          <Button
+            onClick={() => setIsAddingWithUPC(true)}
+            disabled={isAdding || isAddingWithUPC || isAddingEnhanced}
+            variant="outline"
+          >
+            <Scan className="size-4 mr-2" />
+            Scan UPC
+          </Button>
+          <Button
+            onClick={() => setIsAddingEnhanced(true)}
+            disabled={isAdding || isAddingWithUPC || isAddingEnhanced}
+            variant="outline"
+          >
+            <Package className="size-4 mr-2" />
+            Add Enhanced
+          </Button>
+          <Button
+            onClick={() => setIsAdding(true)}
+            disabled={isAdding || isAddingWithUPC || isAddingEnhanced}
+          >
+            <Plus className="size-4 mr-2" />
+            {t("items.addItem")}
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -376,10 +515,52 @@ export default function ItemsPage() {
         </CardContent>
       </Card>
 
+      {/* Price Manager */}
+      {managingPricesFor && (
+        <PriceManager
+          itemId={managingPricesFor}
+          itemDescription={items.find(i => i.id === managingPricesFor)?.description || 'Item'}
+          onPricesUpdated={() => {
+            loadItems()
+            setManagingPricesFor(null)
+          }}
+        />
+      )}
+
+      {/* Tags Manager */}
+      {showTagsManager && (
+        <TagsManager />
+      )}
+
+      {/* Enhanced Item Form */}
+      {isAddingEnhanced && (
+        <EnhancedItemForm
+          mode="create"
+          onSave={handleEnhancedSave}
+          onCancel={() => setIsAddingEnhanced(false)}
+          isLoading={isLoading}
+        />
+      )}
+
+      {/* Edit Item Form */}
+      {editingItem && (
+        <EnhancedItemForm
+          mode="edit"
+          item={editingItem}
+          onSave={handleEnhancedUpdate}
+          onCancel={() => setEditingItem(null)}
+          isLoading={isLoading}
+        />
+      )}
+
+      {/* Simple Add Item Form */}
       {isAdding && (
         <Card>
           <CardHeader>
             <CardTitle>{t("items.addItem")}</CardTitle>
+            <CardDescription>
+              Manually add an item by entering its description
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
@@ -410,6 +591,37 @@ export default function ItemsPage() {
         </Card>
       )}
 
+      {/* UPC Lookup Section */}
+      {isAddingWithUPC && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scan className="size-5" />
+              Add Item with UPC/EAN Barcode
+            </CardTitle>
+            <CardDescription>
+              Scan or enter a UPC/EAN barcode to automatically fetch product information
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UPCLookupComponent
+              onProductFound={handleUPCProductFound}
+              onProductNotFound={handleUPCProductNotFound}
+              disabled={isLoading}
+            />
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddingWithUPC(false)}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-4">
         {filteredItems.map((item) => (
           <Card key={item.id}>
@@ -419,7 +631,7 @@ export default function ItemsPage() {
                   <div className="inline-flex size-10 items-center justify-center rounded-lg bg-purple-500">
                     <Package className="size-5 text-white" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     {editingItem?.id === item.id ? (
                       <Input
                         value={editingItem.description}
@@ -428,10 +640,48 @@ export default function ItemsPage() {
                         className="text-lg font-semibold"
                       />
                     ) : (
-                      <CardTitle>{item.description}</CardTitle>
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          {item.title || item.description}
+                          {(item.ean || item.upc || item.gtin) && (
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
+                              <Scan className="size-3 mr-1" />
+                              UPC
+                            </span>
+                          )}
+                        </CardTitle>
+                        <div className="space-y-1">
+                          <CardDescription>
+                            ID: {item.id}
+                            {item.brand && ` • Brand: ${item.brand}`}
+                            {item.model && ` • Model: ${item.model}`}
+                          </CardDescription>
+                          {(item.ean || item.upc || item.gtin) && (
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {item.ean && `EAN: ${item.ean}`}
+                              {item.upc && (item.ean ? ` • UPC: ${item.upc}` : `UPC: ${item.upc}`)}
+                              {item.gtin && (item.ean || item.upc ? ` • GTIN: ${item.gtin}` : `GTIN: ${item.gtin}`)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
-                    <CardDescription>ID: {item.id}</CardDescription>
                   </div>
+                  
+                  {/* Product Image */}
+                  {item.images && item.images.length > 0 && (
+                    <div className="ml-3">
+                      <img
+                        src={item.images[0]}
+                        alt={item.title || item.description}
+                        className="w-16 h-16 object-cover rounded border"
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement
+                          img.style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   {editingItem?.id === item.id ? (
@@ -456,6 +706,14 @@ export default function ItemsPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => setManagingPricesFor(item.id)}
+                      >
+                        <DollarSign className="size-4 mr-1" />
+                        Manage Prices
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => setAddingPriceFor(item.id)}
                       >
                         <DollarSign className="size-4 mr-1" />
@@ -467,6 +725,7 @@ export default function ItemsPage() {
                         onClick={() => setEditingItem(item)}
                       >
                         <Edit className="size-4" />
+                        Edit All
                       </Button>
                       <Button
                         size="sm"
@@ -482,6 +741,60 @@ export default function ItemsPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Enhanced Product Information */}
+              {(item.full_description || item.category || item.dimension || item.weight || (item.item_tags && item.item_tags.length > 0)) && (
+                <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+                  {item.full_description && (
+                    <div className="mb-2">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {item.full_description}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Tags */}
+                  {item.item_tags && item.item_tags.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-xs font-semibold text-muted-foreground mb-2">TAGS</h5>
+                      <div className="flex flex-wrap gap-1">
+                        {item.item_tags.map((itemTag, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs"
+                            style={itemTag.tags.color ? {
+                              backgroundColor: itemTag.tags.color + '20',
+                              borderColor: itemTag.tags.color
+                            } : {}}
+                          >
+                            {itemTag.tags.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {item.category && (
+                      <span>Category: {item.category}</span>
+                    )}
+                    {item.dimension && (
+                      <span>Dimensions: {item.dimension}</span>
+                    )}
+                    {item.weight && (
+                      <span>Weight: {item.weight}</span>
+                    )}
+                    {item.currency && (item.lowest_recorded_price || item.highest_recorded_price) && (
+                      <span>
+                        Price Range: 
+                        {item.lowest_recorded_price && formatCurrency(item.lowest_recorded_price, item.currency)}
+                        {item.lowest_recorded_price && item.highest_recorded_price && ' - '}
+                        {item.highest_recorded_price && formatCurrency(item.highest_recorded_price, item.currency)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
               {addingPriceFor === item.id && (
                 <div className="mb-4 p-4 border rounded-lg bg-muted/50">
                   <h4 className="font-semibold mb-3">Add Price Information</h4>

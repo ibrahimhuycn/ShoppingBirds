@@ -1,5 +1,5 @@
 # Dependencies
-node_modules/
+node_modules
 /.pnp
 .pnp.js
 
@@ -15,8 +15,7 @@ node_modules/
 
 # Misc
 .DS_Store
-*.tsbuildinfo
-next-env.d.ts
+*.pem
 
 # Debug
 npm-debug.log*
@@ -25,19 +24,23 @@ yarn-error.log*
 
 # Local env files
 .env*.local
-.env
 
 # Vercel
 .vercel
 
 # TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # OS
 Thumbs.db
+
+# Test files
+test-*.js
+test-*.ts
+*.test.js
+*.test.ts

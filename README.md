@@ -5,12 +5,16 @@ A smart shopping assistant application built with Next.js, TypeScript, and Supab
 ## Features
 
 - **Point of Sale (POS) Interface**: Scan or enter barcodes to add items to cart
+- **🆕 UPC API Integration**: Automatically fetch product information using UPC/EAN barcodes
 - **Store Management**: Create and manage multiple stores
 - **Item Management**: Add items with price lists for different stores
 - **Multi-language Support**: English and Dhivehi (Maldivian) language support
-- **Barcode Scanning**: Add items by scanning or entering barcodes
+- **Enhanced Barcode Scanning**: Add items by scanning UPC/EAN codes with automatic product data
 - **Invoice Generation**: Create and track purchase invoices
 - **Price Management**: Set different prices for items across stores
+- **🆕 Product Enhancement**: Rich product metadata with images, brands, models, and categories
+- **🆕 Automatic Tagging**: Smart categorization using brand and category information
+- **🆕 Price History Tracking**: Foundation for tracking price changes over time
 
 ## Technology Stack
 
@@ -26,12 +30,15 @@ A smart shopping assistant application built with Next.js, TypeScript, and Supab
 The application uses the following main tables:
 
 - `stores` - Store information
-- `items` - Product/item catalog
+- `items` - Product/item catalog with **enhanced UPC fields** (ean, upc, gtin, asin, title, brand, model, etc.)
 - `units` - Measurement units (kg, pieces, etc.)
 - `price_lists` - Item prices per store with barcodes
 - `invoices` - Purchase transaction records
 - `invoice_details` - Line items for each invoice
 - `users` - User management
+- **🆕 `tags`** - Product categorization and brand tags
+- **🆕 `item_tags`** - Many-to-many relationship between items and tags
+- **🆕 `price_history`** - Historical price tracking for trend analysis
 
 ## Setup Instructions
 
@@ -88,9 +95,23 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ### Item Management
 1. Navigate to the Items page
-2. Add new items by clicking "Add Item"
+2. Add new items in two ways:
+   - **🆕 Scan UPC**: Click "Scan UPC" to automatically fetch product information
+   - **Manual Entry**: Click "Add Item" for traditional manual entry
 3. For each item, add price information for different stores
 4. Set barcodes, prices, and units for each store
+
+### 🆕 UPC/EAN Product Enhancement
+1. Click the "Scan UPC" button on the Items page
+2. Enter a valid UPC/EAN barcode (8, 12, or 13 digits)
+3. The system automatically fetches:
+   - Product title and description
+   - Brand and model information
+   - Product images
+   - Category and dimension data
+   - Historical price information
+4. Products are automatically tagged with brand and category information
+5. Enhanced product cards display rich metadata and UPC badges
 
 ### Language Support
 The application supports English and Dhivehi languages. Language strings are stored in JSON files under `src/lib/i18n/`.
@@ -120,6 +141,8 @@ src/
 ├── lib/                   # Utilities and configurations
 │   ├── i18n/              # Internationalization
 │   ├── supabase.ts        # Supabase client
+│   ├── 🆕 upc-api.ts        # UPC Item Database API client
+│   ├── 🆕 product-enhancement.ts # Product enhancement service
 │   └── utils.ts           # Utility functions
 └── types/                 # TypeScript type definitions
 ```

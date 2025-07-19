@@ -110,33 +110,251 @@ export type Database = {
           },
         ]
       }
-      items: {
+      item_tags: {
         Row: {
           created_at: string | null
-          description: string
           id: number
-          updated_at: string | null
+          item_id: number
+          tag_id: number
         }
         Insert: {
           created_at?: string | null
-          description: string
           id?: number
-          updated_at?: string | null
+          item_id: number
+          tag_id: number
         }
         Update: {
           created_at?: string | null
-          description?: string
           id?: number
+          item_id?: number
+          tag_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_tags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      items: {
+        Row: {
+          asin: string | null
+          brand: string | null
+          category: string | null
+          created_at: string | null
+          currency: string | null
+          description: string
+          dimension: string | null
+          ean: string | null
+          full_description: string | null
+          gtin: string | null
+          highest_recorded_price: number | null
+          id: number
+          images: string[] | null
+          lowest_recorded_price: number | null
+          model: string | null
+          title: string | null
+          upc: string | null
+          updated_at: string | null
+          weight: string | null
+        }
+        Insert: {
+          asin?: string | null
+          brand?: string | null
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description: string
+          dimension?: string | null
+          ean?: string | null
+          full_description?: string | null
+          gtin?: string | null
+          highest_recorded_price?: number | null
+          id?: number
+          images?: string[] | null
+          lowest_recorded_price?: number | null
+          model?: string | null
+          title?: string | null
+          upc?: string | null
           updated_at?: string | null
+          weight?: string | null
+        }
+        Update: {
+          asin?: string | null
+          brand?: string | null
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string
+          dimension?: string | null
+          ean?: string | null
+          full_description?: string | null
+          gtin?: string | null
+          highest_recorded_price?: number | null
+          id?: number
+          images?: string[] | null
+          lowest_recorded_price?: number | null
+          model?: string | null
+          title?: string | null
+          upc?: string | null
+          updated_at?: string | null
+          weight?: string | null
         }
         Relationships: []
+      }
+      price_change_history: {
+        Row: {
+          barcode: string
+          change_reason: string | null
+          change_type: string
+          changed_by: number | null
+          created_at: string | null
+          effective_date: string
+          id: number
+          item_id: number
+          new_currency: string
+          new_price: number
+          old_currency: string | null
+          old_price: number | null
+          previous_effective_date: string | null
+          price_list_id: number | null
+          store_id: number
+          unit_id: number | null
+        }
+        Insert: {
+          barcode: string
+          change_reason?: string | null
+          change_type: string
+          changed_by?: number | null
+          created_at?: string | null
+          effective_date?: string
+          id?: number
+          item_id: number
+          new_currency?: string
+          new_price: number
+          old_currency?: string | null
+          old_price?: number | null
+          previous_effective_date?: string | null
+          price_list_id?: number | null
+          store_id: number
+          unit_id?: number | null
+        }
+        Update: {
+          barcode?: string
+          change_reason?: string | null
+          change_type?: string
+          changed_by?: number | null
+          created_at?: string | null
+          effective_date?: string
+          id?: number
+          item_id?: number
+          new_currency?: string
+          new_price?: number
+          old_currency?: string | null
+          old_price?: number | null
+          previous_effective_date?: string | null
+          price_list_id?: number | null
+          store_id?: number
+          unit_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_change_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_change_history_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_change_history_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_change_history_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_history: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          date_recorded: string
+          id: number
+          item_id: number
+          price: number
+          source: string | null
+          store_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          date_recorded?: string
+          id?: number
+          item_id: number
+          price: number
+          source?: string | null
+          store_id: number
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          date_recorded?: string
+          id?: number
+          item_id?: number
+          price?: number
+          source?: string | null
+          store_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_history_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_history_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       price_lists: {
         Row: {
           barcode: string
           created_at: string | null
+          currency: string | null
           id: number
+          is_active: boolean | null
           item_id: number
+          price_effective_date: string | null
           retail_price: number
           store_id: number
           unit_id: number
@@ -145,8 +363,11 @@ export type Database = {
         Insert: {
           barcode: string
           created_at?: string | null
+          currency?: string | null
           id?: number
+          is_active?: boolean | null
           item_id: number
+          price_effective_date?: string | null
           retail_price: number
           store_id: number
           unit_id: number
@@ -155,8 +376,11 @@ export type Database = {
         Update: {
           barcode?: string
           created_at?: string | null
+          currency?: string | null
           id?: number
+          is_active?: boolean | null
           item_id?: number
+          price_effective_date?: string | null
           retail_price?: number
           store_id?: number
           unit_id?: number
@@ -203,6 +427,33 @@ export type Database = {
           created_at?: string | null
           id?: number
           name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: number
+          name: string
+          tag_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: number
+          name: string
+          tag_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: number
+          name?: string
+          tag_type?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -272,7 +523,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      price_trend_analysis: {
+        Row: {
+          barcode: string | null
+          brand: string | null
+          category: string | null
+          change_reason: string | null
+          change_timestamp: string | null
+          change_type: string | null
+          effective_date: string | null
+          item_description: string | null
+          item_id: number | null
+          new_currency: string | null
+          new_price: number | null
+          old_currency: string | null
+          old_price: number | null
+          price_change_amount: number | null
+          price_change_percentage: number | null
+          store_id: number | null
+          store_name: string | null
+          unit: string | null
+          unit_description: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_change_history_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_change_history_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never

@@ -8,10 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Plus, ShoppingCart, Scan } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { formatCurrency, generateInvoiceNumber } from "@/lib/utils"
+import { searchItemByBarcodeWithVariants } from "@/lib/barcode-search"
 import { getTranslations, useTranslation } from "@/lib/i18n"
 import { defaultLocale } from "@/lib/i18n/config"
 import { toast } from "sonner"
 import type { Database } from "@/types/database"
+
+// Supported currencies for POS operations
+const SUPPORTED_CURRENCIES = [
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'MVR', symbol: 'Rf', name: 'Maldivian Rufiyaa' },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'LKR', symbol: 'Rs', name: 'Sri Lankan Rupee' }
+]
 
 // Use proper Supabase types
 type Store = Database['public']['Tables']['stores']['Row']
@@ -26,6 +38,7 @@ interface CartItem {
   price: number
   quantity: number
   unit: string
+  currency: string
 }
 
 interface PriceListItem extends PriceListRow {
@@ -37,11 +50,15 @@ export default function POSPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [selectedStore, setSelectedStore] = useState<string>("")
+  const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
   const [barcode, setBarcode] = useState<string>("")
   const [cart, setCart] = useState<CartItem[]>([])
   const [adjustAmount, setAdjustAmount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [translations, setTranslations] = useState<Record<string, any> | null>(null)
+
+  // Initialize translation function
+  const { t } = useTranslation(defaultLocale, translations)
 
   useEffect(() => {
     loadInitialData()
@@ -85,41 +102,32 @@ export default function POSPage() {
 
     setIsLoading(true)
     try {
-      const { data, error } = await supabase
-        .from("price_lists")
-        .select(`
-          *,
-          items:item_id (description),
-          units:unit_id (unit)
-        `)
-        .eq("barcode", barcode)
-        .eq("store_id", parseInt(selectedStore))
-        .single()
-
-      if (error) {
-        if (error.code === "PGRST116") {
-          // Item not found - show toast notification
-          toast.error(translations ? t("pos.itemNotFound") : "Item not found", {
-            description: `No item found with barcode "${barcode}" in the selected store.`,
-            action: {
-              label: "Add Item",
-              onClick: () => {
-                // In a real app, this would open an "Add Item" dialog
-                toast.info("Add Item feature", {
-                  description: "This would open a dialog to add a new item with this barcode."
-                })
-              }
+      const result = await searchItemByBarcodeWithVariants(barcode, parseInt(selectedStore), selectedCurrency)
+      
+      if (!result.found) {
+        toast.error(translations ? t("pos.itemNotFound") : "Item not found", {
+          description: result.message || `No item found with barcode "${barcode}".`,
+          action: {
+            label: "Add Item",
+            onClick: () => {
+              toast.info("Add Item feature", {
+                description: "This would open a dialog to add a new item with this barcode."
+              })
             }
-          })
-        } else {
-          toast.error("Search Error", {
-            description: "An error occurred while searching for the item."
-          })
-        }
+          }
+        })
         return
       }
 
-      const priceListItem = data as PriceListItem
+      const priceListItem = result.item!
+      
+      // Check if the item has the right currency or if we should convert
+      const itemCurrency = priceListItem.currency || 'USD'
+      if (itemCurrency !== selectedCurrency) {
+        toast.warning("Currency Mismatch", {
+          description: `Item is priced in ${itemCurrency}, but POS is set to ${selectedCurrency}. Using item's currency.`
+        })
+      }
       
       // Check if item already exists in cart
       const existingItemIndex = cart.findIndex(
@@ -133,22 +141,23 @@ export default function POSPage() {
         setCart(updatedCart)
         
         toast.success("Item Updated", {
-          description: `${priceListItem.items.description} quantity increased to ${updatedCart[existingItemIndex].quantity}`
+          description: `${priceListItem.items.description} quantity increased to ${updatedCart[existingItemIndex].quantity} (found via ${result.searchMethod})`
         })
       } else {
         // Add new item to cart
         const newItem: CartItem = {
           id: priceListItem.item_id,
           description: priceListItem.items.description,
-          barcode: priceListItem.barcode,
+          barcode: barcode, // Use the scanned barcode
           price: priceListItem.retail_price,
           quantity: 1,
           unit: priceListItem.units.unit,
+          currency: itemCurrency
         }
         setCart([...cart, newItem])
         
         toast.success("Item Added", {
-          description: `${newItem.description} added to cart`
+          description: `${newItem.description} added to cart (found via ${result.searchMethod?.toUpperCase()})`
         })
       }
 
@@ -258,7 +267,10 @@ export default function POSPage() {
     }
   }
 
-  const { t } = useTranslation(defaultLocale, translations)
+  const getCurrencySymbol = (currencyCode: string) => {
+    const currency = SUPPORTED_CURRENCIES.find(c => c.code === currencyCode)
+    return currency?.symbol || currencyCode
+  }
 
   if (!translations) {
     return <div>Loading...</div>
@@ -289,22 +301,43 @@ export default function POSPage() {
                 <Scan className="size-5" />
                 {t("pos.scanBarcode")}
               </CardTitle>
+              <CardDescription>
+                Supports UPC, EAN, GTIN codes and store-specific barcodes
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">{t("pos.selectStore")}</label>
-                <Select value={selectedStore} onValueChange={setSelectedStore}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t("pos.selectStore")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stores.map((store) => (
-                      <SelectItem key={store.id} value={store.id.toString()}>
-                        {store.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">{t("pos.selectStore")}</label>
+                  <Select value={selectedStore} onValueChange={setSelectedStore}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t("pos.selectStore")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={store.id.toString()}>
+                          {store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Preferred Currency</label>
+                  <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_CURRENCIES.map((currency) => (
+                        <SelectItem key={currency.code} value={currency.code}>
+                          {currency.symbol} {currency.code} - {currency.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
@@ -314,7 +347,7 @@ export default function POSPage() {
                     value={barcode}
                     onChange={(e) => setBarcode(e.target.value)}
                     onKeyPress={handleBarcodeKeyPress}
-                    placeholder="Scan or enter barcode"
+                    placeholder="Scan or enter UPC/EAN/GTIN barcode"
                     className="flex-1"
                   />
                   <Button
@@ -348,9 +381,14 @@ export default function POSPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShoppingCart className="size-5" />
-                Cart ({cart.length} items)
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="size-5" />
+                  Cart ({cart.length} items)
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Currency: {getCurrencySymbol(selectedCurrency)} {selectedCurrency}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -365,7 +403,7 @@ export default function POSPage() {
                       <div className="flex-1">
                         <p className="font-medium">{item.description}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.barcode} • {formatCurrency(item.price)} per {item.unit}
+                          {item.barcode} • {getCurrencySymbol(item.currency)}{item.price} {item.currency} per {item.unit}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -378,7 +416,7 @@ export default function POSPage() {
                           className="w-20"
                         />
                         <div className="text-sm font-medium min-w-20 text-right">
-                          {formatCurrency(item.price * item.quantity)}
+                          {getCurrencySymbol(item.currency)}{(item.price * item.quantity).toFixed(2)}
                         </div>
                         <Button
                           variant="ghost"
@@ -403,15 +441,15 @@ export default function POSPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between">
                 <span>{t("pos.subtotal")}</span>
-                <span>{formatCurrency(calculateSubtotal())}</span>
+                <span>{formatCurrency(calculateSubtotal(), selectedCurrency)}</span>
               </div>
               <div className="flex justify-between">
                 <span>{t("pos.adjustAmount")}</span>
-                <span>{formatCurrency(adjustAmount)}</span>
+                <span>{formatCurrency(adjustAmount, selectedCurrency)}</span>
               </div>
               <div className="flex justify-between text-lg font-semibold border-t pt-2">
                 <span>{t("pos.finalTotal")}</span>
-                <span>{formatCurrency(calculateTotal())}</span>
+                <span>{formatCurrency(calculateTotal(), selectedCurrency)}</span>
               </div>
               <Button
                 onClick={processPayment}
