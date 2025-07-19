@@ -1,11 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Package, Edit, Trash2, DollarSign, Scan } from 'lucide-react';
-import { useState } from 'react';
+import { Package, Edit, Trash2, DollarSign, Scan, Settings } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import type { ItemCardProps, Item } from '@/types/items';
+import type { ItemCardProps } from '@/types/items';
 
 export function ItemCard({ 
   item, 
@@ -15,36 +13,9 @@ export function ItemCard({
   onManagePrices, 
   isLoading 
 }: ItemCardProps) {
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [editingDescription, setEditingDescription] = useState<string>(item.description);
-
-  const handleEdit = (): void => {
-    if (isEditing) {
-      const updatedItem: Item = { ...item, description: editingDescription };
-      onEdit(updatedItem);
-      setIsEditing(false);
-    } else {
-      setEditingDescription(item.description);
-      setIsEditing(true);
-    }
-  };
-
-  const handleCancel = (): void => {
-    setEditingDescription(item.description);
-    setIsEditing(false);
-  };
-
   const handleDelete = (): void => {
     if (confirm('Are you sure you want to delete this item?')) {
       onDelete(item.id);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Enter') {
-      handleEdit();
-    } else if (e.key === 'Escape') {
-      handleCancel();
     }
   };
 
@@ -57,41 +28,29 @@ export function ItemCard({
               <Package className="size-5 text-white" />
             </div>
             <div className="flex-1">
-              {isEditing ? (
-                <Input
-                  value={editingDescription}
-                  onChange={(e) => setEditingDescription(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  className="text-lg font-semibold"
-                  disabled={isLoading}
-                />
-              ) : (
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    {item.title || item.description}
-                    {(item.ean || item.upc || item.gtin) && (
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
-                        <Scan className="size-3 mr-1" />
-                        UPC
-                      </span>
-                    )}
-                  </CardTitle>
-                  <div className="space-y-1">
-                    <CardDescription>
-                      ID: {item.id}
-                      {item.brand && ` • Brand: ${item.brand}`}
-                      {item.model && ` • Model: ${item.model}`}
-                    </CardDescription>
-                    {(item.ean || item.upc || item.gtin) && (
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {item.ean && `EAN: ${item.ean}`}
-                        {item.upc && (item.ean ? ` • UPC: ${item.upc}` : `UPC: ${item.upc}`)}
-                        {item.gtin && (item.ean || item.upc ? ` • GTIN: ${item.gtin}` : `GTIN: ${item.gtin}`)}
-                      </div>
-                    )}
+              <CardTitle className="flex items-center gap-2">
+                {item.title || item.description}
+                {(item.ean || item.upc || item.gtin) && (
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
+                    <Scan className="size-3 mr-1" />
+                    UPC
+                  </span>
+                )}
+              </CardTitle>
+              <div className="space-y-1">
+                <CardDescription>
+                  ID: {item.id}
+                  {item.brand && ` • Brand: ${item.brand}`}
+                  {item.model && ` • Model: ${item.model}`}
+                </CardDescription>
+                {(item.ean || item.upc || item.gtin) && (
+                  <div className="text-xs text-muted-foreground font-mono">
+                    {item.ean && `EAN: ${item.ean}`}
+                    {item.upc && (item.ean ? ` • UPC: ${item.upc}` : `UPC: ${item.upc}`)}
+                    {item.gtin && (item.ean || item.upc ? ` • GTIN: ${item.gtin}` : `GTIN: ${item.gtin}`)}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
             
             {/* Product Image */}
@@ -111,63 +70,41 @@ export function ItemCard({
           </div>
           
           <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <Button
-                  size="sm"
-                  onClick={handleEdit}
-                  disabled={!editingDescription.trim() || isLoading}
-                >
-                  Save
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onManagePrices(item.id)}
-                  disabled={isLoading}
-                >
-                  <DollarSign className="size-4 mr-1" />
-                  Manage Prices
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onAddPrice(item.id)}
-                  disabled={isLoading}
-                >
-                  <DollarSign className="size-4 mr-1" />
-                  Add Price
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsEditing(true)}
-                  disabled={isLoading}
-                >
-                  <Edit className="size-4" />
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={handleDelete}
-                  disabled={isLoading}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </>
-            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onManagePrices(item.id)}
+              disabled={isLoading}
+            >
+              <Settings className="size-4 mr-1" />
+              Manage Prices
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onAddPrice(item.id)}
+              disabled={isLoading}
+            >
+              <DollarSign className="size-4 mr-1" />
+              Add Price
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onEdit(item)}
+              disabled={isLoading}
+            >
+              <Edit className="size-4 mr-1" />
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isLoading}
+            >
+              <Trash2 className="size-4" />
+            </Button>
           </div>
         </div>
       </CardHeader>

@@ -8,3 +8,5 @@ export { AddPriceDialog } from './AddPriceDialog';
 export { UPCLookupDialog } from './UPCLookupDialog';
 export { EnhancedItemDialog } from './EnhancedItemDialog';
 export { TagsManagerDialog } from './TagsManagerDialog';
+export { PriceManagerDialog } from './PriceManagerDialog';
+export { ItemEditDialog } from './ItemEditDialog';

@@ -12,8 +12,9 @@ import {
   UPCLookupDialog,
   EnhancedItemDialog,
   TagsManagerDialog,
+  PriceManagerDialog,
+  ItemEditDialog,
 } from './forms';
-import { PriceManager } from '@/components/ui/price-manager';
 import { productEnhancementService, type EnhancedProductData } from '@/lib/product-enhancement';
 import { toast } from 'sonner';
 import type { Item } from '@/types/items';
@@ -28,10 +29,17 @@ export function ItemsContainer() {
     open: boolean;
     itemId: number | null;
   }>({ open: false, itemId: null });
+  const [priceManagerDialog, setPriceManagerDialog] = useState<{
+    open: boolean;
+    itemId: number | null;
+  }>({ open: false, itemId: null });
+  const [itemEditDialog, setItemEditDialog] = useState<{
+    open: boolean;
+    item: Item | null;
+  }>({ open: false, item: null });
 
-  // Other state
+  // Enhanced dialog state
   const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [managingPricesFor, setManagingPricesFor] = useState<number | null>(null);
 
   // Custom hooks
   const {
@@ -72,16 +80,14 @@ export function ItemsContainer() {
   };
 
   const handleEditItem = (item: Item): void => {
-    setEditingItem(item);
-    setIsEnhancedDialogOpen(true);
+    setItemEditDialog({ open: true, item });
   };
 
-  const handleUpdateItem = async (data: any): Promise<void> => {
-    if (!editingItem) return;
+  const handleUpdateItem = async (data: Partial<Item>): Promise<void> => {
+    if (!itemEditDialog.item) return;
     
-    const updatedItem: Item = { ...editingItem, ...data };
+    const updatedItem: Item = { ...itemEditDialog.item, ...data };
     await updateItem(updatedItem);
-    setEditingItem(null);
   };
 
   const handleDeleteItem = async (itemId: number): Promise<void> => {
@@ -100,6 +106,18 @@ export function ItemsContainer() {
     setAddPriceDialog({ open: false, itemId: null });
   };
 
+  const handleOpenPriceManagerDialog = (itemId: number): void => {
+    setPriceManagerDialog({ open: true, itemId });
+  };
+
+  const handleClosePriceManagerDialog = (): void => {
+    setPriceManagerDialog({ open: false, itemId: null });
+  };
+
+  const handleCloseItemEditDialog = (): void => {
+    setItemEditDialog({ open: false, item: null });
+  };
+
   const handleUPCProductFound = async (enhancedData: EnhancedProductData): Promise<void> => {
     const newItem = await productEnhancementService.createEnhancedItem(enhancedData);
     await loadItems(); // Refresh items list
@@ -114,7 +132,9 @@ export function ItemsContainer() {
   const handleEnhancedSave = async (data: any): Promise<void> => {
     if (editingItem) {
       // Update existing item
-      await handleUpdateItem(data);
+      const updatedItem: Item = { ...editingItem, ...data };
+      await updateItem(updatedItem);
+      setEditingItem(null);
     } else {
       // Create new item
       await productEnhancementService.createEnhancedItem(data);
@@ -126,6 +146,10 @@ export function ItemsContainer() {
   const handleEnhancedDialogClose = (): void => {
     setIsEnhancedDialogOpen(false);
     setEditingItem(null);
+  };
+
+  const handlePricesUpdated = (): void => {
+    loadItems(); // Refresh items list
   };
 
   // Get item description for forms
@@ -156,18 +180,6 @@ export function ItemsContainer() {
         filteredItems={filteredItems.length}
       />
 
-      {/* Price Manager (shown inline as it's complex) */}
-      {managingPricesFor && (
-        <PriceManager
-          itemId={managingPricesFor}
-          itemDescription={getItemDescription(managingPricesFor)}
-          onPricesUpdated={() => {
-            loadItems();
-            setManagingPricesFor(null);
-          }}
-        />
-      )}
-
       {/* Items List */}
       {filteredItems.length > 0 ? (
         <ItemList
@@ -175,7 +187,7 @@ export function ItemsContainer() {
           onItemEdit={handleEditItem}
           onItemDelete={handleDeleteItem}
           onAddPrice={handleOpenAddPriceDialog}
-          onManagePrices={setManagingPricesFor}
+          onManagePrices={handleOpenPriceManagerDialog}
           isLoading={isLoading}
         />
       ) : (
@@ -221,6 +233,18 @@ export function ItemsContainer() {
         onOpenChange={setIsTagsDialogOpen}
       />
 
+      {/* Item Edit Dialog */}
+      {itemEditDialog.item && (
+        <ItemEditDialog
+          open={itemEditDialog.open}
+          onOpenChange={handleCloseItemEditDialog}
+          item={itemEditDialog.item}
+          onSave={handleUpdateItem}
+          isLoading={isLoading}
+        />
+      )}
+
+      {/* Add Price Dialog */}
       {addPriceDialog.itemId && (
         <AddPriceDialog
           open={addPriceDialog.open}
@@ -231,6 +255,17 @@ export function ItemsContainer() {
           units={units}
           onSubmit={handleAddPrice}
           isLoading={isLoading}
+        />
+      )}
+
+      {/* Price Manager Dialog */}
+      {priceManagerDialog.itemId && (
+        <PriceManagerDialog
+          open={priceManagerDialog.open}
+          onOpenChange={handleClosePriceManagerDialog}
+          itemId={priceManagerDialog.itemId}
+          itemDescription={getItemDescription(priceManagerDialog.itemId)}
+          onPricesUpdated={handlePricesUpdated}
         />
       )}
     </div>
