@@ -1,7 +1,8 @@
 "use client"
 
 import { CurrencySelector, MoneyDisplay } from "@/components/currency";
-import { getBaseCurrency } from "@/lib/currency";
+import { getBaseCurrency, getCurrencyById } from "@/lib/currency";
+import { SettingsService } from "@/lib/settings";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,8 +12,7 @@ import { Trash2, Plus, ShoppingCart, Scan } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { formatCurrency, generateInvoiceNumber } from "@/lib/utils"
 import { searchItemByBarcodeWithVariants } from "@/lib/barcode-search"
-import { getTranslations, useTranslation } from "@/lib/i18n"
-import { defaultLocale } from "@/lib/i18n/config"
+import { useI18n } from "@/contexts/translation-context"
 import { toast } from "sonner"
 import type { Database } from "@/types/database";
 import type { Currency } from "@/types/currency";
@@ -40,6 +40,7 @@ interface PriceListItem extends PriceListRow {
 }
 
 export default function POSPage() {
+  const { t } = useI18n()
   const [stores, setStores] = useState<Store[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [selectedStore, setSelectedStore] = useState<string>("")
@@ -49,10 +50,6 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [adjustAmount, setAdjustAmount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
-
-  // Initialize translation function
-  const { t } = useTranslation(defaultLocale, translations)
 
   useEffect(() => {
     loadInitialData();
@@ -61,20 +58,29 @@ export default function POSPage() {
 
   const loadBaseCurrency = async (): Promise<void> => {
     try {
+      // First try to get default currency from settings
+      const defaultCurrencyId = SettingsService.getDefaultCurrencyId();
+      
+      if (defaultCurrencyId) {
+        const defaultCurrency = await getCurrencyById(defaultCurrencyId);
+        if (defaultCurrency) {
+          setBaseCurrency(defaultCurrency);
+          setSelectedCurrencyId(defaultCurrency.id);
+          return;
+        }
+      }
+      
+      // Fallback to base currency if no default set or default not found
       const currency = await getBaseCurrency();
       setBaseCurrency(currency);
       setSelectedCurrencyId(currency.id);
     } catch (error) {
-      console.error("Error loading base currency:", error);
+      console.error("Error loading currency:", error);
     }
   };
 
   const loadInitialData = async (): Promise<void> => {
     try {
-      // Load translations
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
-
       // Load stores
       const { data: storesData, error: storesError } = await supabase
         .from("stores")
@@ -264,10 +270,6 @@ export default function POSPage() {
     if (e.key === "Enter") {
       searchItemByBarcode(barcode)
     }
-  }
-
-  if (!translations) {
-    return <div>Loading...</div>
   }
 
   return (

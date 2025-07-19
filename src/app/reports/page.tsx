@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button"
 import { BarChart3, TrendingUp, DollarSign, Package, Calendar } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { getTranslations, useTranslation } from "@/lib/i18n"
-import { defaultLocale } from "@/lib/i18n/config"
+import { useI18n } from "@/contexts/translation-context"
 import type { Database } from "@/types/database"
 
 // Use proper Supabase types
@@ -40,6 +39,7 @@ interface ReportStats {
 }
 
 export default function ReportsPage() {
+  const { t } = useI18n()
   const [transactions, setTransactions] = useState<TransactionRecord[]>([])
   const [stats, setStats] = useState<ReportStats>({
     totalTransactions: 0,
@@ -50,7 +50,6 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
 
   const loadTransactions = useCallback(async (start?: string, end?: string): Promise<void> => {
     setIsLoading(true)
@@ -149,10 +148,6 @@ export default function ReportsPage() {
 
   const loadInitialData = useCallback(async (): Promise<void> => {
     try {
-      // Load translations
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
-
       // Load all transactions
       await loadTransactions()
     } catch (error) {
@@ -176,12 +171,6 @@ export default function ReportsPage() {
     setStartDate("")
     setEndDate("")
     loadTransactions()
-  }
-
-  const { t } = useTranslation(defaultLocale, translations)
-
-  if (!translations) {
-    return <div>Loading...</div>
   }
 
   return (

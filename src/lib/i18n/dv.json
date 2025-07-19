@@ -1,7 +1,15 @@
 {
+  "currency": {
+    "selectCurrency": "އައުޒާނީ ހޮވާ",
+    "loading": "ލޯޑް ވެދާނެ...",
+    "failedToLoad": "އައުޒާނީ ލޯޑް ކުރެވުނެއް ނޫން"
+  },
   "app": {
     "title": "ShoppingBird",
     "subtitle": "ބުއްކަށް ޖަހާ ލޯބިވާ ކަސްޓަމަރަށް"
+  },
+  "home": {
+    "scanBarcode": "މައިން އެޕްލިކޭޝަން ފީޗަރުން އެކްސެސް"
   },
   "navigation": {
     "home": "ހޯމް",
@@ -31,19 +39,33 @@
     "priceNotAvailable": "މި ސްޓޯރަށް އަގު ނުފެނުނު",
     "enterPrice": "އަގު ލިޔުއްވާ",
     "save": "ސޭވް",
-    "cancel": "ކެންސަލް"
+    "cancel": "ކެންސަލް",
+    "selectStorePlaceholder": "އާވަލު ސްޓޯރު ހޮވާ",
+    "enterBarcodePlaceholder": "ބާކޯޑް ލިޔުއްވާ އަނޫން ސާމާން ސްކޭން ކުރާ",
+    "emptyCart": "ތި ކާޓް ހާލީ",
+    "addItemsToCart": "ފެށުމަށް ކާޓަށް ސާމާން އިތުރުކުރާ",
+    "transactionCompleted": "ޓަންޓީލް ކާމިޔާބުވަން ކޮމްޕްލީޓް!",
+    "selectCurrency": "އައުޒާނީ ހޮވާ"
   },
   "stores": {
     "title": "ސްޓޯރު",
+    "scanBarcode": "ސްޓޯރު ތަންތަން އަދި މަޢުލޫމާތު މެނޭޖް ކުރުން",
     "addStore": "ސްޓޯރު އިތުރުކުރުން",
     "editStore": "ސްޓޯރު އެޑިޓް",
     "storeName": "ސްޓޯރު ނަން",
     "actions": "އެކްޝަން",
     "edit": "އެޑިޓް",
-    "delete": "ޑިލީޓް"
+    "delete": "ޑިލީޓް",
+    "searchPlaceholder": "ސްޓޯރު ހޯދާ...",
+    "noStores": "ސްޓޯރު ނުފެނުނު",
+    "noStoresDescription": "ފުރަތަމަ ސްޓޯރު އިތުރުކުރުމުން ފެށުން",
+    "storesPerPage": "ޞަފްޙާއަކަށް ސްޓޯރު",
+    "deleteConfirm": "މި ސްޓޯރު ޑިލީޓް ކުރަން ބޭނުންވޭތޯ؟",
+    "enterStoreName": "ސްޓޯރު ނަން ލިޔުއްވާ"
   },
   "items": {
     "title": "ސާމާން",
+    "scanBarcode": "ސާމާން ސްކޭން އަދި ސްޓޮކް މެނޭޖް ކުރުން",
     "addItem": "ސާމާން އިތުރުކުރުން",
     "editItem": "ސާމާން އެޑިޓް",
     "itemDescription": "ސާމާނުގެ ތަފްޞީލް",
@@ -54,7 +76,15 @@
     "actions": "އެކްޝަން",
     "edit": "އެޑިޓް",
     "delete": "ޑިލީޓް",
-    "priceList": "އަގުތަކުގެ ލިސްޓް"
+    "priceList": "އަގުތަކުގެ ލިސްޓް",
+    "scanUPC": "UPC ސްކޭން",
+    "addEnhanced": "އިތުރަށް އިތުރުކުރާ",
+    "manageTags": "ޓެގްތައް މެނޭޖް",
+    "hideTags": "ޓެގްތައް ފޮރުވާ",
+    "searchPlaceholder": "ސާމާން ހޯދާ...",
+    "noItems": "ސާމާން ނުފެނުނު",
+    "noItemsDescription": "ފުރަތަމަ ސާމާން އިތުރުކުރުމުން ފެށުން",
+    "itemsPerPage": "ޞަފްޙާއަކަށް ސާމާން"
   },
   "units": {
     "title": "ޔޫނިޓް",
@@ -90,10 +120,12 @@
     "id": "އައިޑީ",
     "status": "ސްޓޭޓަސް",
     "active": "އެކްޓިވް",
-    "inactive": "އިނެކްޓިވް"
+    "inactive": "އިނެކްޓިވް",
+    "go": "ދާށޭ"
   },
   "reports": {
     "title": "ރިޕޯޓް",
+    "scanBarcode": "ވިއްކާ އެނަލިޓިކްސް އަދި އިންސަިޓްސް ކޮވާ",
     "transactionHistory": "ޓްރާންޒެކްޝަން ހިސްޓަރީ",
     "totalTransactions": "ޖުމުލަ ޓްރާންޒެކްޝަން",
     "totalRevenue": "ޖުމުލަ އާމްދަނީ",
@@ -102,7 +134,65 @@
     "dateRange": "ތާރީހުގެ ރޭންޖް",
     "startDate": "ފެށުމުގެ ތާރީހް",
     "endDate": "ނިމުމުގެ ތާރީހް",
-    "noTransactions": "ޚަނޑިތުރުވި ވަގުތަށް ޓްރާންޒެކްޝަން ނުފެނުނު"
+    "noTransactions": "ޚަނޑިތުރުވި ވަގުތަށް ޓްރާންޒެކްޝަން ނުފެނުނު",
+    "generateReport": "ރިޕޯޓް ޖެނެރޭޓް",
+    "export": "އެކްސްޕޯޓް",
+    "filterByDate": "ތާރީޚިން ފިލްޓަރް",
+    "allTime": "އުރިހާ ވަގުތު",
+    "thisMonth": "މި މަސް",
+    "lastMonth": "އަނެއް މަސް",
+    "thisYear": "މި އަހަރު",
+    "customRange": "ކަސްޓަމް ރޭންޖް"
+  },
+  "settings": {
+    "title": "ސެޓިން",
+    "general": "އާންމު ސެޓިން",
+    "generalDescription": "ބޭސިކް އެޕްލިކޭޝަން ސެޓިން ކޮންފިގަރ ކުރާ",
+    "appearance": "ދިއުން އަދި ބަސް",
+    "appearanceDescription": "ދިއުން އަދި ބަސް ކަސްޓަމައިޒް ކުރާ",
+    "printing": "ރުސީޓް އަދި ޕްރިންޓިން",
+    "printingDescription": "ރުސީޓް އަދި ޕްރިންޓިން އޮޕްޝަން ކޮންފިގަރ ކުރާ",
+    "dataManagement": "ޑޭޓާ މެނޭޖްމަންޓް",
+    "dataDescription": "ތި ޑޭޓާ ބަކްއަޕް، ރިސްޓޯރ، އަދި މެނޭޖް ކުރާ",
+    "currencyManagement": "އައުޒާނީ މެނޭޖްމަންޓް",
+    "currencyDescription": "އައުޒާނީ، އެކްސްޗޭންޖް ރޭޓް، އަދި ބޭސް އައުޒާނީ ކޮންފިގަރ ކުރާ",
+    "systemInfo": "ސިސްޓަމް މަޢުލޫމާތު",
+    "defaultCurrency": "ޑިފޯލްޓް އައުޒާނީ",
+    "selectDefaultCurrency": "ޑިފޯލްޓް އައުޒާނީ ހޮވާ",
+    "defaultStore": "ޑިފޯލްޓް ސްޓޯރު",
+    "selectDefaultStore": "ޑިފޯލްޓް ސްޓޯރު ހޮވާ",
+    "language": "ބަސް",
+    "theme": "ތީމް",
+    "lightTheme": "އުޖަލަ",
+    "darkTheme": "ކަޅު",
+    "systemTheme": "ސިސްޓަމް",
+    "receiptPrinter": "ރުސީޓް ޕްރިންޓަރ",
+    "defaultPrinter": "ޑިފޯލްޓް ޕްރިންޓަރ",
+    "thermalPrinter": "ތަރްމަލް ޕްރިންޓަރ",
+    "noPrinter": "ޕްރިންޓަރ ނެތް",
+    "automaticBackup": "އޮޓޯމެޓިކް ބަކްއަޕް",
+    "exportData": "އުރިހާ ޑޭޓާ އެކްސްޕޯޓް",
+    "importData": "ޑޭޓާ އިމްޕޯޓް",
+    "clearAllData": "އުރިހާ ޑޭޓާ ސާފުކުރާ",
+    "resetToDefaults": "ސަމްޕަލް ޑޭޓާ ރީސެޓް",
+    "lowStockAlert": "ކުރީ ސްޓޮކް އެލަރް ތަކެތި",
+    "saveSettings": "ސެޓިން ސޭވް",
+    "testPrint": "ޓެސްޓް ޕްރިންޓް ރުސީޓް",
+    "configurePrinter": "ޕްރިންޓަރ ސެޓިން ކޮންފިގަރ",
+    "manageCurrencies": "އައުޒާނީ މެނޭޖް",
+    "testCurrencySystem": "އައުޒާނީ ސިސްޓަމް ޓެސްޓް",
+    "appVersion": "އެޕްލިކޭޝަން ވަރޝަން",
+    "databaseStatus": "ޑޭޓާބޭސް ސްޓޭޓަސް",
+    "lastBackup": "ފަހު ބަކްއަޕް",
+    "totalStores": "ޖުމުލަ ސްޓޯރު",
+    "storageUsed": "ބޭނުން ކުރި ސްޓޯރަޖް",
+    "lastUpdated": "ފަހު އަޕްޑޭޓް",
+    "connected": "ކަނެކްޓް",
+    "never": "އަބަދުވެސް ނޫން",
+    "daily": "ދުވަހަކު",
+    "weekly": "ހަފްތާއެއް",
+    "monthly": "މަހެއް",
+    "today": "މިއަދު"
   },
   "validation": {
     "required": "މި ފީލްޑް ފުރިހަމަ ކުރަން ޖެހޭ",
@@ -111,5 +201,11 @@
     "maxLength": "ދިގު ވަނަ ދިގުމިން {max} އަކުރު",
     "invalidNumber": "ރަގަޅު ނަމްބަރު",
     "positiveNumber": "ޕޮޒިޓިވް ނަމްބަރު ކޮށްދޭންވާ"
+  },
+  "errors": {
+    "notFound": "ޞަފްޙާ ނުފެނުނު",
+    "notFoundDescription": "އިރުޝާދުކުރެވި ޞަފްޙާ ނުވެއެ އަނެއްކާ ގޮތަކަށް ސްތަރުނުވެއެ.",
+    "goHome": "ހޯމް އަށް",
+    "goBack": "އޭގެ ކުރަށް"
   }
 }

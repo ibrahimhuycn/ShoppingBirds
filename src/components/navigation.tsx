@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, ShoppingCart, Store, Package, BarChart3, Settings, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { getTranslations, useTranslation } from "@/lib/i18n"
-import { defaultLocale } from "@/lib/i18n/config"
+import { useI18n } from "@/contexts/translation-context"
 
 const navigationItems = [
   { key: "home", href: "/", icon: Home, label: "Home" },
@@ -19,17 +18,7 @@ const navigationItems = [
 ]
 
 export function Navigation() {
-  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
-  
-  useEffect(() => {
-    const loadTranslations = async () => {
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
-    }
-    loadTranslations()
-  }, [])
-  
-  const { t } = useTranslation(defaultLocale, translations)
+  const { t } = useI18n()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false)
   const pathname = usePathname()
 
@@ -44,7 +33,7 @@ export function Navigation() {
           <div className="flex">
             <div className="flex flex-shrink-0 items-center">
               <Link href="/" className="text-xl font-bold">
-                {translations ? t("app.title") : "ShoppingBird"}
+                {t("app.title")}
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -63,7 +52,7 @@ export function Navigation() {
                     )}
                   >
                     <IconComponent className="size-4" />
-                    {translations ? t(`navigation.${item.key}`) : item.label}
+                    {t(`navigation.${item.key}`)}
                   </Link>
                 )
               })}
@@ -106,7 +95,7 @@ export function Navigation() {
                   )}
                 >
                   <IconComponent className="size-5" />
-                  {translations ? t(`navigation.${item.key}`) : item.label}
+                  {t(`navigation.${item.key}`)}
                 </Link>
               )
             })}
