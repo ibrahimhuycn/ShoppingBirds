@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Settings, 
   Globe, 
-  DollarSign, 
+  Coins, 
   Printer, 
   Database, 
   User, 
@@ -245,6 +246,38 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Currency Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Coins className="size-5" />
+              Currency Management
+            </CardTitle>
+            <CardDescription>Manage currencies and exchange rates</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>Configure currencies, exchange rates, and set your base currency for calculations and reporting.</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Link href="/settings/currencies">
+                <Button variant="outline" className="w-full">
+                  <Coins className="size-4 mr-2" />
+                  Manage Currencies
+                </Button>
+              </Link>
+              
+              <Link href="/settings/currency-test">
+                <Button variant="outline" className="w-full">
+                  <Settings className="size-4 mr-2" />
+                  Test Currency System
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* General Settings */}
         <Card>
           <CardHeader>

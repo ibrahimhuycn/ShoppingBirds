@@ -8,7 +8,6 @@ import { ItemList } from './list/ItemList';
 import { EmptyState } from './list/EmptyState';
 import { 
   AddItemDialog,
-  AddPriceDialog,
   UPCLookupDialog,
   EnhancedItemDialog,
   TagsManagerDialog,
@@ -25,10 +24,6 @@ export function ItemsContainer() {
   const [isUPCDialogOpen, setIsUPCDialogOpen] = useState<boolean>(false);
   const [isEnhancedDialogOpen, setIsEnhancedDialogOpen] = useState<boolean>(false);
   const [isTagsDialogOpen, setIsTagsDialogOpen] = useState<boolean>(false);
-  const [addPriceDialog, setAddPriceDialog] = useState<{
-    open: boolean;
-    itemId: number | null;
-  }>({ open: false, itemId: null });
   const [priceManagerDialog, setPriceManagerDialog] = useState<{
     open: boolean;
     itemId: number | null;
@@ -53,7 +48,6 @@ export function ItemsContainer() {
     addItem,
     updateItem,
     deleteItem,
-    addPrice,
   } = useItems();
 
   const {
@@ -92,18 +86,6 @@ export function ItemsContainer() {
 
   const handleDeleteItem = async (itemId: number): Promise<void> => {
     await deleteItem(itemId);
-  };
-
-  const handleAddPrice = async (itemId: number, priceData: any): Promise<void> => {
-    await addPrice(itemId, priceData);
-  };
-
-  const handleOpenAddPriceDialog = (itemId: number): void => {
-    setAddPriceDialog({ open: true, itemId });
-  };
-
-  const handleCloseAddPriceDialog = (): void => {
-    setAddPriceDialog({ open: false, itemId: null });
   };
 
   const handleOpenPriceManagerDialog = (itemId: number): void => {
@@ -186,7 +168,6 @@ export function ItemsContainer() {
           items={filteredItems}
           onItemEdit={handleEditItem}
           onItemDelete={handleDeleteItem}
-          onAddPrice={handleOpenAddPriceDialog}
           onManagePrices={handleOpenPriceManagerDialog}
           isLoading={isLoading}
         />
@@ -240,20 +221,6 @@ export function ItemsContainer() {
           onOpenChange={handleCloseItemEditDialog}
           item={itemEditDialog.item}
           onSave={handleUpdateItem}
-          isLoading={isLoading}
-        />
-      )}
-
-      {/* Add Price Dialog */}
-      {addPriceDialog.itemId && (
-        <AddPriceDialog
-          open={addPriceDialog.open}
-          onOpenChange={handleCloseAddPriceDialog}
-          itemId={addPriceDialog.itemId}
-          itemDescription={getItemDescription(addPriceDialog.itemId)}
-          stores={stores}
-          units={units}
-          onSubmit={handleAddPrice}
           isLoading={isLoading}
         />
       )}

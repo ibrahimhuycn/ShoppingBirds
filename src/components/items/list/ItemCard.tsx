@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, Edit, Trash2, DollarSign, Scan, Settings } from 'lucide-react';
+import { Package, Edit, Trash2, DollarSign, Scan } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { ItemCardProps } from '@/types/items';
 
@@ -9,7 +9,6 @@ export function ItemCard({
   item, 
   onEdit, 
   onDelete, 
-  onAddPrice, 
   onManagePrices, 
   isLoading 
 }: ItemCardProps) {
@@ -17,6 +16,16 @@ export function ItemCard({
     if (confirm('Are you sure you want to delete this item?')) {
       onDelete(item.id);
     }
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -76,17 +85,8 @@ export function ItemCard({
               onClick={() => onManagePrices(item.id)}
               disabled={isLoading}
             >
-              <Settings className="size-4 mr-1" />
-              Manage Prices
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onAddPrice(item.id)}
-              disabled={isLoading}
-            >
               <DollarSign className="size-4 mr-1" />
-              Add Price
+              Manage Prices
             </Button>
             <Button
               size="sm"
@@ -167,28 +167,47 @@ export function ItemCard({
         {/* Price Lists */}
         {item.price_lists.length > 0 ? (
           <div>
-            <h4 className="font-semibold mb-3">Price List</h4>
+            <h4 className="font-semibold mb-3">Current Prices</h4>
             <div className="grid gap-2">
               {item.price_lists.map((price) => (
-                <div key={price.id} className="flex items-center justify-between p-2 border rounded">
+                <div key={price.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-4">
-                    <span className="font-mono text-sm">{price.barcode}</span>
-                    <span className="text-sm">{price.stores.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {price.units.unit} - {price.units.description}
-                    </span>
+                    <span className="font-mono text-sm bg-muted px-2 py-1 rounded">{price.barcode}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{price.stores.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {price.units.unit} - {price.units.description}
+                      </span>
+                    </div>
                   </div>
-                  <div className="font-semibold">
-                    {formatCurrency(price.retail_price)}
+                  <div className="text-right">
+                    <div className="font-semibold text-lg">
+                      {formatCurrency(price.retail_price)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Updated: {formatDate(price.updated_at || price.created_at || '')}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            No prices set for this item. Click "Add Price" to add pricing information.
-          </p>
+          <div className="text-center py-6 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+            <DollarSign className="size-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground mb-2">
+              No prices set for this item
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onManagePrices(item.id)}
+              disabled={isLoading}
+            >
+              <DollarSign className="size-4 mr-1" />
+              Add First Price
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -1,5 +1,7 @@
 "use client"
 
+import { CurrencySelector, MoneyDisplay } from "@/components/currency";
+import { getBaseCurrency } from "@/lib/currency";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,18 +14,8 @@ import { searchItemByBarcodeWithVariants } from "@/lib/barcode-search"
 import { getTranslations, useTranslation } from "@/lib/i18n"
 import { defaultLocale } from "@/lib/i18n/config"
 import { toast } from "sonner"
-import type { Database } from "@/types/database"
-
-// Supported currencies for POS operations
-const SUPPORTED_CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'MVR', symbol: 'Rf', name: 'Maldivian Rufiyaa' },
-  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'LKR', symbol: 'Rs', name: 'Sri Lankan Rupee' }
-]
+import type { Database } from "@/types/database";
+import type { Currency } from "@/types/currency";
 
 // Use proper Supabase types
 type Store = Database['public']['Tables']['stores']['Row']
@@ -32,13 +24,14 @@ type Item = Database['public']['Tables']['items']['Row']
 type PriceListRow = Database['public']['Tables']['price_lists']['Row']
 
 interface CartItem {
-  id: number
-  description: string
-  barcode: string
-  price: number
-  quantity: number
-  unit: string
-  currency: string
+  id: number;
+  description: string;
+  barcode: string;
+  price: number;
+  quantity: number;
+  unit: string;
+  currencyId: number;
+  currency?: Currency;
 }
 
 interface PriceListItem extends PriceListRow {
@@ -50,7 +43,8 @@ export default function POSPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [selectedStore, setSelectedStore] = useState<string>("")
-  const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
+  const [selectedCurrencyId, setSelectedCurrencyId] = useState<number | undefined>();
+  const [baseCurrency, setBaseCurrency] = useState<Currency | null>(null);
   const [barcode, setBarcode] = useState<string>("")
   const [cart, setCart] = useState<CartItem[]>([])
   const [adjustAmount, setAdjustAmount] = useState<number>(0)
@@ -61,8 +55,19 @@ export default function POSPage() {
   const { t } = useTranslation(defaultLocale, translations)
 
   useEffect(() => {
-    loadInitialData()
-  }, [])
+    loadInitialData();
+    loadBaseCurrency();
+  }, []);
+
+  const loadBaseCurrency = async (): Promise<void> => {
+    try {
+      const currency = await getBaseCurrency();
+      setBaseCurrency(currency);
+      setSelectedCurrencyId(currency.id);
+    } catch (error) {
+      console.error("Error loading base currency:", error);
+    }
+  };
 
   const loadInitialData = async (): Promise<void> => {
     try {
@@ -98,40 +103,33 @@ export default function POSPage() {
   }
 
   const searchItemByBarcode = async (barcode: string): Promise<void> => {
-    if (!barcode.trim() || !selectedStore) return
+    if (!barcode.trim() || !selectedStore || !selectedCurrencyId) return
 
     setIsLoading(true)
     try {
-      const result = await searchItemByBarcodeWithVariants(barcode, parseInt(selectedStore), selectedCurrency)
-      
-      if (!result.found) {
-        toast.error(translations ? t("pos.itemNotFound") : "Item not found", {
-          description: result.message || `No item found with barcode "${barcode}".`,
-          action: {
-            label: "Add Item",
-            onClick: () => {
-              toast.info("Add Item feature", {
-                description: "This would open a dialog to add a new item with this barcode."
-              })
-            }
-          }
-        })
-        return
+      // For now, use a simplified search - you can enhance this later
+      const { data: priceListData, error } = await supabase
+        .from("price_lists")
+        .select(`
+          *,
+          items!inner(description),
+          units!inner(unit)
+        `)
+        .eq("barcode", barcode)
+        .eq("store_id", parseInt(selectedStore))
+        .eq("is_active", true)
+        .single();
+
+      if (error || !priceListData) {
+        toast.error("Item not found", {
+          description: `No item found with barcode "${barcode}".`,
+        });
+        return;
       }
 
-      const priceListItem = result.item!
-      
-      // Check if the item has the right currency or if we should convert
-      const itemCurrency = priceListItem.currency || 'USD'
-      if (itemCurrency !== selectedCurrency) {
-        toast.warning("Currency Mismatch", {
-          description: `Item is priced in ${itemCurrency}, but POS is set to ${selectedCurrency}. Using item's currency.`
-        })
-      }
-      
       // Check if item already exists in cart
       const existingItemIndex = cart.findIndex(
-        (item) => item.id === priceListItem.item_id
+        (item) => item.id === priceListData.item_id
       )
 
       if (existingItemIndex >= 0) {
@@ -141,23 +139,24 @@ export default function POSPage() {
         setCart(updatedCart)
         
         toast.success("Item Updated", {
-          description: `${priceListItem.items.description} quantity increased to ${updatedCart[existingItemIndex].quantity} (found via ${result.searchMethod})`
+          description: `${priceListData.items.description} quantity increased to ${updatedCart[existingItemIndex].quantity}`
         })
       } else {
         // Add new item to cart
         const newItem: CartItem = {
-          id: priceListItem.item_id,
-          description: priceListItem.items.description,
-          barcode: barcode, // Use the scanned barcode
-          price: priceListItem.retail_price,
+          id: priceListData.item_id,
+          description: priceListData.items.description,
+          barcode: barcode,
+          price: priceListData.retail_price,
           quantity: 1,
-          unit: priceListItem.units.unit,
-          currency: itemCurrency
+          unit: priceListData.units.unit,
+          currencyId: selectedCurrencyId,
+          currency: baseCurrency || undefined,
         }
         setCart([...cart, newItem])
         
         toast.success("Item Added", {
-          description: `${newItem.description} added to cart (found via ${result.searchMethod?.toUpperCase()})`
+          description: `${newItem.description} added to cart`
         })
       }
 
@@ -267,11 +266,6 @@ export default function POSPage() {
     }
   }
 
-  const getCurrencySymbol = (currencyCode: string) => {
-    const currency = SUPPORTED_CURRENCIES.find(c => c.code === currencyCode)
-    return currency?.symbol || currencyCode
-  }
-
   if (!translations) {
     return <div>Loading...</div>
   }
@@ -325,18 +319,12 @@ export default function POSPage() {
                 
                 <div>
                   <label className="text-sm font-medium">Preferred Currency</label>
-                  <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SUPPORTED_CURRENCIES.map((currency) => (
-                        <SelectItem key={currency.code} value={currency.code}>
-                          {currency.symbol} {currency.code} - {currency.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CurrencySelector
+                    value={selectedCurrencyId}
+                    onValueChange={setSelectedCurrencyId}
+                    placeholder="Select currency"
+                    className="w-full"
+                  />
                 </div>
               </div>
 
@@ -387,7 +375,7 @@ export default function POSPage() {
                   Cart ({cart.length} items)
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Currency: {getCurrencySymbol(selectedCurrency)} {selectedCurrency}
+                  Currency: {baseCurrency?.symbol} {baseCurrency?.code}
                 </div>
               </CardTitle>
             </CardHeader>
@@ -403,7 +391,7 @@ export default function POSPage() {
                       <div className="flex-1">
                         <p className="font-medium">{item.description}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.barcode} • {getCurrencySymbol(item.currency)}{item.price} {item.currency} per {item.unit}
+                          {item.barcode} • <MoneyDisplay amount={item.price} currencyId={item.currencyId} /> per {item.unit}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -416,7 +404,7 @@ export default function POSPage() {
                           className="w-20"
                         />
                         <div className="text-sm font-medium min-w-20 text-right">
-                          {getCurrencySymbol(item.currency)}{(item.price * item.quantity).toFixed(2)}
+                          <MoneyDisplay amount={item.price * item.quantity} currencyId={item.currencyId} />
                         </div>
                         <Button
                           variant="ghost"
@@ -441,15 +429,25 @@ export default function POSPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between">
                 <span>{t("pos.subtotal")}</span>
-                <span>{formatCurrency(calculateSubtotal(), selectedCurrency)}</span>
+                <MoneyDisplay 
+                  amount={calculateSubtotal()} 
+                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
+                />
               </div>
               <div className="flex justify-between">
                 <span>{t("pos.adjustAmount")}</span>
-                <span>{formatCurrency(adjustAmount, selectedCurrency)}</span>
+                <MoneyDisplay 
+                  amount={adjustAmount} 
+                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
+                />
               </div>
               <div className="flex justify-between text-lg font-semibold border-t pt-2">
                 <span>{t("pos.finalTotal")}</span>
-                <span>{formatCurrency(calculateTotal(), selectedCurrency)}</span>
+                <MoneyDisplay 
+                  amount={calculateTotal()} 
+                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)}
+                  variant="large" 
+                />
               </div>
               <Button
                 onClick={processPayment}

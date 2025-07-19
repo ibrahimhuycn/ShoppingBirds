@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { DollarSign } from 'lucide-react';
-import { PriceManager } from '@/components/ui/price-manager';
+import { EnhancedPriceManager } from './EnhancedPriceManager';
 
 interface PriceManagerDialogProps {
   open: boolean;
@@ -25,23 +25,22 @@ export function PriceManagerDialog({
 }: PriceManagerDialogProps) {
   const handlePricesUpdated = (): void => {
     onPricesUpdated();
-    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1000px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="size-5" />
-            Manage Prices - {itemDescription}
+            Manage Prices
           </DialogTitle>
           <DialogDescription>
-            View, edit, and manage all pricing information for this item across different stores.
+            Add, edit, remove prices and view price trends for this item across all stores.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <PriceManager
+          <EnhancedPriceManager
             itemId={itemId}
             itemDescription={itemDescription}
             onPricesUpdated={handlePricesUpdated}

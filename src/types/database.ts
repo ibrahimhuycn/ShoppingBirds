@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      currencies: {
+        Row: {
+          code: string
+          created_at: string | null
+          decimal_places: number
+          factor: number
+          id: number
+          is_active: boolean
+          is_base_currency: boolean
+          name: string
+          symbol: string
+          update_source: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          decimal_places?: number
+          factor?: number
+          id?: number
+          is_active?: boolean
+          is_base_currency?: boolean
+          name: string
+          symbol: string
+          update_source?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          decimal_places?: number
+          factor?: number
+          id?: number
+          is_active?: boolean
+          is_base_currency?: boolean
+          name?: string
+          symbol?: string
+          update_source?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       invoice_details: {
         Row: {
           created_at: string | null
@@ -153,6 +195,7 @@ export type Database = {
           category: string | null
           created_at: string | null
           currency: string | null
+          currency_id: number | null
           description: string
           dimension: string | null
           ean: string | null
@@ -174,6 +217,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           currency?: string | null
+          currency_id?: number | null
           description: string
           dimension?: string | null
           ean?: string | null
@@ -195,6 +239,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           currency?: string | null
+          currency_id?: number | null
           description?: string
           dimension?: string | null
           ean?: string | null
@@ -210,7 +255,15 @@ export type Database = {
           updated_at?: string | null
           weight?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "items_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       price_change_history: {
         Row: {
@@ -223,8 +276,10 @@ export type Database = {
           id: number
           item_id: number
           new_currency: string
+          new_currency_id: number | null
           new_price: number
           old_currency: string | null
+          old_currency_id: number | null
           old_price: number | null
           previous_effective_date: string | null
           price_list_id: number | null
@@ -241,8 +296,10 @@ export type Database = {
           id?: number
           item_id: number
           new_currency?: string
+          new_currency_id?: number | null
           new_price: number
           old_currency?: string | null
+          old_currency_id?: number | null
           old_price?: number | null
           previous_effective_date?: string | null
           price_list_id?: number | null
@@ -259,8 +316,10 @@ export type Database = {
           id?: number
           item_id?: number
           new_currency?: string
+          new_currency_id?: number | null
           new_price?: number
           old_currency?: string | null
+          old_currency_id?: number | null
           old_price?: number | null
           previous_effective_date?: string | null
           price_list_id?: number | null
@@ -283,6 +342,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "price_change_history_new_currency_id_fkey"
+            columns: ["new_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_change_history_old_currency_id_fkey"
+            columns: ["old_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "price_change_history_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
@@ -302,6 +375,7 @@ export type Database = {
         Row: {
           created_at: string | null
           currency: string | null
+          currency_id: number | null
           date_recorded: string
           id: number
           item_id: number
@@ -312,6 +386,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           currency?: string | null
+          currency_id?: number | null
           date_recorded?: string
           id?: number
           item_id: number
@@ -322,6 +397,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           currency?: string | null
+          currency_id?: number | null
           date_recorded?: string
           id?: number
           item_id?: number
@@ -330,6 +406,13 @@ export type Database = {
           store_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "price_history_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "price_history_item_id_fkey"
             columns: ["item_id"]
@@ -351,6 +434,7 @@ export type Database = {
           barcode: string
           created_at: string | null
           currency: string | null
+          currency_id: number | null
           id: number
           is_active: boolean | null
           item_id: number
@@ -364,6 +448,7 @@ export type Database = {
           barcode: string
           created_at?: string | null
           currency?: string | null
+          currency_id?: number | null
           id?: number
           is_active?: boolean | null
           item_id: number
@@ -377,6 +462,7 @@ export type Database = {
           barcode?: string
           created_at?: string | null
           currency?: string | null
+          currency_id?: number | null
           id?: number
           is_active?: boolean | null
           item_id?: number
@@ -387,6 +473,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "price_lists_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "price_lists_item_id_fkey"
             columns: ["item_id"]

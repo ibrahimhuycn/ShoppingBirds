@@ -10,3 +10,4 @@ export { EnhancedItemDialog } from './EnhancedItemDialog';
 export { TagsManagerDialog } from './TagsManagerDialog';
 export { PriceManagerDialog } from './PriceManagerDialog';
 export { ItemEditDialog } from './ItemEditDialog';
+export { EnhancedPriceManager } from './EnhancedPriceManager';

@@ -21,7 +21,6 @@ export interface UseItemsReturn {
   addItem: (data: AddItemFormData) => Promise<void>;
   updateItem: (item: Item) => Promise<void>;
   deleteItem: (itemId: number) => Promise<void>;
-  addPrice: (itemId: number, priceData: PriceFormData) => Promise<void>;
 }
 
 export function useItems(): UseItemsReturn {
@@ -170,50 +169,6 @@ export function useItems(): UseItemsReturn {
     }
   }, []);
 
-  const addPrice = useCallback(async (itemId: number, priceData: PriceFormData): Promise<void> => {
-    if (!priceData.barcode || !priceData.store_id || !priceData.retail_price || !priceData.unit_id) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('price_lists')
-        .insert({
-          item_id: itemId,
-          barcode: priceData.barcode,
-          store_id: parseInt(priceData.store_id),
-          retail_price: parseFloat(priceData.retail_price),
-          unit_id: parseInt(priceData.unit_id),
-        })
-        .select(`
-          *,
-          stores (name),
-          units (unit, description)
-        `)
-        .single();
-
-      if (error) throw error;
-
-      // Update the item with the new price
-      setItems(prevItems => 
-        prevItems.map(item => 
-          item.id === itemId 
-            ? { ...item, price_lists: [...item.price_lists, data] }
-            : item
-        )
-      );
-      toast.success('Price added successfully');
-    } catch (error) {
-      console.error('Error adding price:', error);
-      toast.error('Failed to add price');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   return {
     items,
     stores,
@@ -225,6 +180,5 @@ export function useItems(): UseItemsReturn {
     addItem,
     updateItem,
     deleteItem,
-    addPrice,
   };
 }

@@ -1,6 +1,5 @@
 import { ItemCard } from './ItemCard';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Package } from 'lucide-react';
 import type { ItemListProps } from '@/types/items';
 
@@ -8,7 +7,6 @@ export function ItemList({
   items, 
   onItemEdit, 
   onItemDelete, 
-  onAddPrice, 
   onManagePrices, 
   isLoading 
 }: ItemListProps) {
@@ -33,7 +31,6 @@ export function ItemList({
           item={item}
           onEdit={onItemEdit}
           onDelete={onItemDelete}
-          onAddPrice={onAddPrice}
           onManagePrices={onManagePrices}
           isLoading={isLoading}
         />
