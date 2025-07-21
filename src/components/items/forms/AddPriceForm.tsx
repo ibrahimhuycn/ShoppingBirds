@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { TaxSelector } from '@/components/tax';
+import { getAllTaxTypes, updateTaxAssociations } from '@/lib/tax-service';
 import type { AddPriceFormProps, PriceFormData } from '@/types/items';
+import type { TaxType } from '@/types/tax';
+import { useEffect } from 'react';
 
 export function AddPriceForm({ 
   itemId, 
@@ -11,14 +16,33 @@ export function AddPriceForm({
   units, 
   onSubmit, 
   onCancel, 
-  isLoading 
+  isLoading,
+  showTaxSelector = true
 }: AddPriceFormProps) {
+  const [taxTypes, setTaxTypes] = useState<TaxType[]>([]);
   const [formData, setFormData] = useState<PriceFormData>({
     barcode: '',
     store_id: '',
     retail_price: '',
     unit_id: '',
+    selectedTaxIds: [],
   });
+
+  // Load tax types on component mount
+  useEffect(() => {
+    if (showTaxSelector) {
+      loadTaxTypes();
+    }
+  }, [showTaxSelector]);
+
+  const loadTaxTypes = async (): Promise<void> => {
+    try {
+      const taxes = await getAllTaxTypes();
+      setTaxTypes(taxes);
+    } catch (error) {
+      console.error('Error loading tax types:', error);
+    }
+  };
 
   const handleSubmit = async (): Promise<void> => {
     if (!formData.barcode || !formData.store_id || !formData.retail_price || !formData.unit_id) {
@@ -32,13 +56,14 @@ export function AddPriceForm({
         store_id: '',
         retail_price: '',
         unit_id: '',
+        selectedTaxIds: [],
       });
     } catch (error) {
       console.error('Form submission error:', error);
     }
   };
 
-  const updateFormData = (field: keyof PriceFormData, value: string): void => {
+  const updateFormData = (field: keyof PriceFormData, value: string | number[]): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -109,6 +134,23 @@ export function AddPriceForm({
           </Select>
         </div>
       </div>
+      
+      {showTaxSelector && taxTypes.length > 0 && (
+        <>
+          <Separator className="my-4" />
+          <div className="space-y-4">
+            <TaxSelector
+              availableTaxes={taxTypes}
+              selectedTaxIds={formData.selectedTaxIds || []}
+              onSelectionChange={(taxIds) => updateFormData('selectedTaxIds', taxIds)}
+              disabled={isLoading}
+              showCalculatedAmount={!!formData.retail_price && parseFloat(formData.retail_price) > 0}
+              basePrice={parseFloat(formData.retail_price) || 0}
+            />
+          </div>
+        </>
+      )}
+      
       <div className="flex gap-2 mt-4">
         <Button
           onClick={handleSubmit}

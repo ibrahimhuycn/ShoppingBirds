@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { 
   Plus, 
   Edit, 
@@ -16,12 +17,17 @@ import {
   Store as StoreIcon,
   Package,
   Save,
-  X
+  X,
+  Percent,
+  Receipt
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
+import { TaxSelector, CompactTaxBreakdown } from '@/components/tax';
+import { getAllTaxTypes, updateTaxAssociations, getPriceWithTaxes } from '@/lib/tax-service';
 import type { Store, Unit } from '@/types/items';
+import type { TaxType, PriceWithTaxes } from '@/types/tax';
 
 interface PriceList {
   id: number;
@@ -45,6 +51,7 @@ interface PriceFormData {
   retail_price: string;
   unit_id: string;
   currency: string;
+  selectedTaxIds: number[];
 }
 
 interface PriceTrend {
@@ -70,11 +77,14 @@ export function EnhancedPriceManager({
   const [prices, setPrices] = useState<PriceList[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [taxTypes, setTaxTypes] = useState<TaxType[]>([]);
+  const [pricesWithTax, setPricesWithTax] = useState<Record<number, PriceWithTaxes>>({});
   const [priceTrends, setPriceTrends] = useState<PriceTrend[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [editingPrice, setEditingPrice] = useState<PriceList | null>(null);
   const [isAddingPrice, setIsAddingPrice] = useState<boolean>(false);
   const [showTrends, setShowTrends] = useState<boolean>(false);
+  const [showTaxes, setShowTaxes] = useState<boolean>(true);
 
   const [formData, setFormData] = useState<PriceFormData>({
     barcode: '',
@@ -82,12 +92,13 @@ export function EnhancedPriceManager({
     retail_price: '',
     unit_id: '',
     currency: 'USD',
+    selectedTaxIds: [],
   });
 
   const loadData = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     try {
-      const [pricesResult, storesResult, unitsResult] = await Promise.all([
+      const [pricesResult, storesResult, unitsResult, taxTypesData] = await Promise.all([
         supabase
           .from('price_lists')
           .select(`
@@ -104,16 +115,41 @@ export function EnhancedPriceManager({
         supabase
           .from('units')
           .select('*')
-          .order('unit')
+          .order('unit'),
+        getAllTaxTypes()
       ]);
 
       if (pricesResult.error) throw pricesResult.error;
       if (storesResult.error) throw storesResult.error;
       if (unitsResult.error) throw unitsResult.error;
 
-      setPrices(pricesResult.data || []);
+      const pricesData = pricesResult.data || [];
+      setPrices(pricesData);
       setStores(storesResult.data || []);
       setUnits(unitsResult.data || []);
+      setTaxTypes(taxTypesData);
+
+      // Load tax information for each price
+      if (pricesData.length > 0) {
+        const taxPromises = pricesData.map(async (price) => {
+          try {
+            const priceWithTax = await getPriceWithTaxes(price.id);
+            return { priceListId: price.id, data: priceWithTax };
+          } catch (error) {
+            console.error(`Error loading taxes for price ${price.id}:`, error);
+            return { priceListId: price.id, data: null };
+          }
+        });
+
+        const taxResults = await Promise.all(taxPromises);
+        const taxMap: Record<number, PriceWithTaxes> = {};
+        taxResults.forEach(result => {
+          if (result.data) {
+            taxMap[result.priceListId] = result.data;
+          }
+        });
+        setPricesWithTax(taxMap);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load price data');
@@ -157,6 +193,7 @@ export function EnhancedPriceManager({
       retail_price: '',
       unit_id: '',
       currency: 'USD',
+      selectedTaxIds: [],
     });
     setEditingPrice(null);
     setIsAddingPrice(false);
@@ -167,16 +204,37 @@ export function EnhancedPriceManager({
     setIsAddingPrice(true);
   };
 
-  const handleEditPrice = (price: PriceList): void => {
-    setFormData({
-      barcode: price.barcode,
-      store_id: price.store_id.toString(),
-      retail_price: price.retail_price.toString(),
-      unit_id: price.unit_id.toString(),
-      currency: price.currency || 'USD',
-    });
-    setEditingPrice(price);
-    setIsAddingPrice(false);
+  const handleEditPrice = async (price: PriceList): Promise<void> => {
+    try {
+      // Load existing tax associations
+      const { data: taxAssociations, error } = await supabase
+        .from('price_list_taxes')
+        .select('tax_type_id')
+        .eq('price_list_id', price.id)
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error loading tax associations:', error);
+        toast.error('Failed to load tax information');
+        return;
+      }
+
+      const selectedTaxIds = taxAssociations?.map(ta => ta.tax_type_id) || [];
+
+      setFormData({
+        barcode: price.barcode,
+        store_id: price.store_id.toString(),
+        retail_price: price.retail_price.toString(),
+        unit_id: price.unit_id.toString(),
+        currency: price.currency || 'USD',
+        selectedTaxIds,
+      });
+      setEditingPrice(price);
+      setIsAddingPrice(false);
+    } catch (error) {
+      console.error('Error setting up edit form:', error);
+      toast.error('Failed to load price for editing');
+    }
   };
 
   const handleDeletePrice = async (priceId: number): Promise<void> => {
@@ -219,6 +277,8 @@ export function EnhancedPriceManager({
         currency: formData.currency || 'USD',
       };
 
+      let priceListId: number;
+
       if (editingPrice) {
         // Update existing price
         const { error } = await supabase
@@ -227,16 +287,25 @@ export function EnhancedPriceManager({
           .eq('id', editingPrice.id);
 
         if (error) throw error;
+        priceListId = editingPrice.id;
         toast.success('Price updated successfully');
       } else {
         // Create new price
-        const { error } = await supabase
+        const { data: newPrice, error } = await supabase
           .from('price_lists')
-          .insert(priceData);
+          .insert(priceData)
+          .select('id')
+          .single();
 
         if (error) throw error;
+        if (!newPrice) throw new Error('Failed to get new price ID');
+        
+        priceListId = newPrice.id;
         toast.success('Price added successfully');
       }
+
+      // Update tax associations
+      await updateTaxAssociations(priceListId, formData.selectedTaxIds);
 
       await loadData();
       onPricesUpdated();
@@ -249,7 +318,7 @@ export function EnhancedPriceManager({
     }
   };
 
-  const updateFormData = (field: keyof PriceFormData, value: string): void => {
+  const updateFormData = (field: keyof PriceFormData, value: string | number[]): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -284,6 +353,14 @@ export function EnhancedPriceManager({
           >
             {showTrends ? <TrendingDown className="size-4 mr-2" /> : <TrendingUp className="size-4 mr-2" />}
             {showTrends ? 'Hide Trends' : 'View Trends'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowTaxes(!showTaxes)}
+            disabled={isLoading}
+          >
+            {showTaxes ? <Receipt className="size-4 mr-2" /> : <Percent className="size-4 mr-2" />}
+            {showTaxes ? 'Hide Tax Info' : 'Show Tax Info'}
           </Button>
           <Button
             onClick={handleAddPrice}
@@ -388,6 +465,21 @@ export function EnhancedPriceManager({
                 </Select>
               </div>
             </div>
+
+            <Separator />
+
+            {/* Tax Selection */}
+            <div className="space-y-4">
+              <TaxSelector
+                availableTaxes={taxTypes}
+                selectedTaxIds={formData.selectedTaxIds}
+                onSelectionChange={(taxIds) => updateFormData('selectedTaxIds', taxIds)}
+                disabled={isLoading}
+                showCalculatedAmount={!!formData.retail_price && parseFloat(formData.retail_price) > 0}
+                basePrice={parseFloat(formData.retail_price) || 0}
+              />
+            </div>
+
             <div className="flex gap-2 mt-4">
               <Button
                 onClick={handleSubmitPrice}
@@ -505,10 +597,25 @@ export function EnhancedPriceManager({
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-semibold text-lg">
-                        {formatCurrency(price.retail_price, price.currency || 'USD')}
-                      </div>
+                    <div className="text-right space-y-2">
+                      {showTaxes && pricesWithTax[price.id] ? (
+                        <CompactTaxBreakdown
+                          taxBreakdown={pricesWithTax[price.id].appliedTaxes || []}
+                          basePrice={price.retail_price}
+                          currency={price.currency || 'USD'}
+                        />
+                      ) : (
+                        <>
+                          <div className="font-semibold text-lg">
+                            {formatCurrency(price.retail_price, price.currency || 'USD')}
+                          </div>
+                          {showTaxes && (
+                            <div className="text-xs text-muted-foreground">
+                              No tax information
+                            </div>
+                          )}
+                        </>
+                      )}
                       <div className="text-xs text-muted-foreground">
                         {price.units.description}
                       </div>

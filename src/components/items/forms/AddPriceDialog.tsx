@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { DollarSign } from 'lucide-react';
+import { TaxSelector } from '@/components/tax';
+import { getAllTaxTypes } from '@/lib/tax-service';
 import type { PriceFormData, Store, Unit } from '@/types/items';
+import type { TaxType } from '@/types/tax';
 
 interface AddPriceDialogProps {
   open: boolean;
@@ -23,6 +27,7 @@ interface AddPriceDialogProps {
   units: Unit[];
   onSubmit: (itemId: number, data: PriceFormData) => Promise<void>;
   isLoading: boolean;
+  showTaxSelector?: boolean;
 }
 
 export function AddPriceDialog({ 
@@ -33,14 +38,33 @@ export function AddPriceDialog({
   stores, 
   units, 
   onSubmit, 
-  isLoading 
+  isLoading,
+  showTaxSelector = true
 }: AddPriceDialogProps) {
+  const [taxTypes, setTaxTypes] = useState<TaxType[]>([]);
   const [formData, setFormData] = useState<PriceFormData>({
     barcode: '',
     store_id: '',
     retail_price: '',
     unit_id: '',
+    selectedTaxIds: [],
   });
+
+  // Load tax types when dialog opens
+  useEffect(() => {
+    if (open && showTaxSelector) {
+      loadTaxTypes();
+    }
+  }, [open, showTaxSelector]);
+
+  const loadTaxTypes = async (): Promise<void> => {
+    try {
+      const taxes = await getAllTaxTypes();
+      setTaxTypes(taxes);
+    } catch (error) {
+      console.error('Error loading tax types:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -55,6 +79,7 @@ export function AddPriceDialog({
         store_id: '',
         retail_price: '',
         unit_id: '',
+        selectedTaxIds: [],
       });
       onOpenChange(false);
     } catch (error) {
@@ -68,11 +93,12 @@ export function AddPriceDialog({
       store_id: '',
       retail_price: '',
       unit_id: '',
+      selectedTaxIds: [],
     });
     onOpenChange(false);
   };
 
-  const updateFormData = (field: keyof PriceFormData, value: string): void => {
+  const updateFormData = (field: keyof PriceFormData, value: string | number[]): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -158,6 +184,22 @@ export function AddPriceDialog({
                 </SelectContent>
               </Select>
             </div>
+            
+            {showTaxSelector && taxTypes.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-4">
+                  <TaxSelector
+                    availableTaxes={taxTypes}
+                    selectedTaxIds={formData.selectedTaxIds || []}
+                    onSelectionChange={(taxIds) => updateFormData('selectedTaxIds', taxIds)}
+                    disabled={isLoading}
+                    showCalculatedAmount={!!formData.retail_price && parseFloat(formData.retail_price) > 0}
+                    basePrice={parseFloat(formData.retail_price) || 0}
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button

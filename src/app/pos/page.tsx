@@ -3,6 +3,8 @@
 import { CurrencySelector, MoneyDisplay } from "@/components/currency";
 import { getBaseCurrency, getCurrencyById } from "@/lib/currency";
 import { SettingsService } from "@/lib/settings";
+import { getPriceWithTaxes } from "@/lib/tax-service";
+import { TaxBreakdown } from "@/components/tax";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,8 +16,9 @@ import { formatCurrency, generateInvoiceNumber } from "@/lib/utils"
 import { searchItemByBarcodeWithVariants } from "@/lib/barcode-search"
 import { useI18n } from "@/contexts/translation-context"
 import { toast } from "sonner"
-import type { Database } from "@/types/database";
+import type { Database, PriceWithTaxes } from "@/types/database";
 import type { Currency } from "@/types/currency";
+import type { TaxBreakdownItem } from "@/types/tax";
 
 // Use proper Supabase types
 type Store = Database['public']['Tables']['stores']['Row']
@@ -25,13 +28,18 @@ type PriceListRow = Database['public']['Tables']['price_lists']['Row']
 
 interface CartItem {
   id: number;
+  priceListId: number;
   description: string;
   barcode: string;
-  price: number;
+  basePrice: number;
+  taxAmount: number;
+  finalPrice: number;
   quantity: number;
   unit: string;
   currencyId: number;
   currency?: Currency;
+  taxBreakdown: TaxBreakdownItem[];
+  hasCustomTaxes: boolean;
 }
 
 interface PriceListItem extends PriceListRow {
@@ -113,7 +121,7 @@ export default function POSPage() {
 
     setIsLoading(true)
     try {
-      // For now, use a simplified search - you can enhance this later
+      // First, search for the basic price list item
       const { data: priceListData, error } = await supabase
         .from("price_lists")
         .select(`
@@ -133,6 +141,25 @@ export default function POSPage() {
         return;
       }
 
+      // Get price with taxes calculated
+      const priceWithTaxes = await getPriceWithTaxes(priceListData.id);
+      
+      if (!priceWithTaxes) {
+        toast.error("Price calculation error", {
+          description: "Unable to calculate taxes for this item.",
+        });
+        return;
+      }
+
+      // Transform applied taxes to TaxBreakdownItem format
+      const taxBreakdown: TaxBreakdownItem[] = priceWithTaxes.appliedTaxes.map(tax => ({
+        taxId: tax.taxId,
+        taxName: tax.taxName,
+        percentage: tax.percentage,
+        amount: tax.amount,
+        effectiveDate: tax.effectiveDate
+      }));
+
       // Check if item already exists in cart
       const existingItemIndex = cart.findIndex(
         (item) => item.id === priceListData.item_id
@@ -148,21 +175,30 @@ export default function POSPage() {
           description: `${priceListData.items.description} quantity increased to ${updatedCart[existingItemIndex].quantity}`
         })
       } else {
-        // Add new item to cart
+        // Add new item to cart with full tax information
         const newItem: CartItem = {
           id: priceListData.item_id,
+          priceListId: priceListData.id,
           description: priceListData.items.description,
           barcode: barcode,
-          price: priceListData.retail_price,
+          basePrice: priceWithTaxes.basePrice,
+          taxAmount: priceWithTaxes.totalTaxAmount,
+          finalPrice: priceWithTaxes.priceWithTaxes,
           quantity: 1,
           unit: priceListData.units.unit,
           currencyId: selectedCurrencyId,
           currency: baseCurrency || undefined,
+          taxBreakdown: taxBreakdown,
+          hasCustomTaxes: !priceWithTaxes.usesDefaultNoTax
         }
         setCart([...cart, newItem])
         
+        const taxInfo = priceWithTaxes.usesDefaultNoTax 
+          ? "(No tax)"
+          : `(+${formatCurrency(priceWithTaxes.totalTaxAmount, baseCurrency?.code || 'USD')} tax)`;
+        
         toast.success("Item Added", {
-          description: `${newItem.description} added to cart`
+          description: `${newItem.description} added to cart ${taxInfo}`
         })
       }
 
@@ -202,11 +238,15 @@ export default function POSPage() {
   }
 
   const calculateSubtotal = (): number => {
-    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    return cart.reduce((sum, item) => sum + item.basePrice * item.quantity, 0)
+  }
+
+  const calculateTotalTax = (): number => {
+    return cart.reduce((sum, item) => sum + item.taxAmount * item.quantity, 0)
   }
 
   const calculateTotal = (): number => {
-    return calculateSubtotal() + adjustAmount
+    return cart.reduce((sum, item) => sum + item.finalPrice * item.quantity, 0) + adjustAmount
   }
 
   const processPayment = async (): Promise<void> => {
@@ -233,19 +273,51 @@ export default function POSPage() {
 
       if (invoiceError) throw invoiceError
 
-      // Create invoice details
+      // Create invoice details with proper tax support
       const invoiceDetails = cart.map((item) => ({
         invoice_id: invoiceData.id,
         item_id: item.id,
-        price: item.price,
+        price: item.finalPrice, // Final price including tax
+        base_price: item.basePrice, // Base price before tax
+        tax_amount: item.taxAmount, // Total tax amount
+        total_price: item.finalPrice, // Same as final price
         quantity: item.quantity,
       }))
 
-      const { error: detailsError } = await supabase
+      const { data: detailsData, error: detailsError } = await supabase
         .from("invoice_details")
         .insert(invoiceDetails)
+        .select()
 
       if (detailsError) throw detailsError
+
+      // Create invoice detail taxes for audit trail
+      const invoiceDetailTaxes: any[] = []
+      
+      cart.forEach((item, index) => {
+        if (item.hasCustomTaxes && item.taxBreakdown.length > 0) {
+          item.taxBreakdown.forEach((tax) => {
+            invoiceDetailTaxes.push({
+              invoice_detail_id: detailsData[index].id,
+              tax_type_id: tax.taxId,
+              tax_percentage: tax.percentage,
+              tax_amount: tax.amount * item.quantity
+            })
+          })
+        }
+      })
+
+      // Insert tax details if any exist
+      if (invoiceDetailTaxes.length > 0) {
+        const { error: taxDetailsError } = await supabase
+          .from("invoice_detail_taxes")
+          .insert(invoiceDetailTaxes)
+        
+        if (taxDetailsError) {
+          console.error('Tax details insertion error:', taxDetailsError)
+          // Don't fail the transaction for tax detail errors
+        }
+      }
 
       // Clear cart and reset
       setCart([])
@@ -393,8 +465,18 @@ export default function POSPage() {
                       <div className="flex-1">
                         <p className="font-medium">{item.description}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.barcode} • <MoneyDisplay amount={item.price} currencyId={item.currencyId} /> per {item.unit}
+                          {item.barcode} • <MoneyDisplay amount={item.basePrice} currencyId={item.currencyId} /> per {item.unit}
+                          {item.hasCustomTaxes && (
+                            <span className="ml-2 text-xs bg-primary/10 text-primary px-1 rounded">
+                              +{formatCurrency(item.taxAmount, baseCurrency?.code || 'USD')} tax
+                            </span>
+                          )}
                         </p>
+                        {item.hasCustomTaxes && (
+                          <p className="text-xs text-muted-foreground">
+                            Final: <MoneyDisplay amount={item.finalPrice} currencyId={item.currencyId} /> per {item.unit}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Input
@@ -406,7 +488,12 @@ export default function POSPage() {
                           className="w-20"
                         />
                         <div className="text-sm font-medium min-w-20 text-right">
-                          <MoneyDisplay amount={item.price * item.quantity} currencyId={item.currencyId} />
+                          <MoneyDisplay amount={item.finalPrice * item.quantity} currencyId={item.currencyId} />
+                          {item.hasCustomTaxes && (
+                            <div className="text-xs text-muted-foreground">
+                              Base: <MoneyDisplay amount={item.basePrice * item.quantity} currencyId={item.currencyId} />
+                            </div>
+                          )}
                         </div>
                         <Button
                           variant="ghost"
@@ -430,9 +517,16 @@ export default function POSPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span>{t("pos.subtotal")}</span>
+                <span>{t("pos.subtotal")} (Base)</span>
                 <MoneyDisplay 
                   amount={calculateSubtotal()} 
+                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
+                />
+              </div>
+              <div className="flex justify-between">
+                <span>Total Tax</span>
+                <MoneyDisplay 
+                  amount={calculateTotalTax()} 
                   currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
                 />
               </div>
@@ -451,6 +545,36 @@ export default function POSPage() {
                   variant="large" 
                 />
               </div>
+              
+              {/* Tax Details Expansion */}
+              {calculateTotalTax() > 0 && (
+                <Card className="bg-muted/50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Tax Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-1 text-sm">
+                      {cart.filter(item => item.hasCustomTaxes).map((item) => (
+                        <div key={item.id} className="space-y-1">
+                          <div className="font-medium text-xs text-muted-foreground">{item.description}:</div>
+                          {item.taxBreakdown.map((tax) => (
+                            <div key={tax.taxId} className="flex justify-between text-xs ml-2">
+                              <span>{tax.taxName} ({tax.percentage}%) × {item.quantity}</span>
+                              <span>
+                                <MoneyDisplay 
+                                  amount={tax.amount * item.quantity} 
+                                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
+                                />
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
               <Button
                 onClick={processPayment}
                 disabled={cart.length === 0 || isLoading}

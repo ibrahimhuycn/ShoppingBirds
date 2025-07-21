@@ -23,7 +23,8 @@ import {
   RefreshCw,
   Moon,
   Sun,
-  Monitor
+  Monitor,
+  Percent
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { Database as DatabaseType } from "@/types/database"
@@ -258,6 +259,42 @@ export default function SettingsPage() {
                   {t('settings.testCurrencySystem')}
                 </Button>
               </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tax Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Percent className="size-5" />
+              Tax Management
+            </CardTitle>
+            <CardDescription>Configure tax types and calculations</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>Configure tax types and manage tax calculations for your prices.</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Link href="/settings/taxes">
+                <Button variant="outline" className="w-full">
+                  <Percent className="size-4 mr-2" />
+                  Manage Tax Types
+                </Button>
+              </Link>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div>
+                  <strong>Calculation Method:</strong><br />
+                  Additive (Sum of all taxes)
+                </div>
+                <div>
+                  <strong>Storage:</strong><br />
+                  Tax-exclusive pricing
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
