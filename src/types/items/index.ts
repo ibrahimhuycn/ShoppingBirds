@@ -10,6 +10,7 @@ export type PriceListRow = Database['public']['Tables']['price_lists']['Row'];
 export interface PriceList extends PriceListRow {
   stores: { name: string };
   units: { unit: string; description: string };
+  currencies?: { id: number; code: string; symbol: string; name: string } | null;
 }
 
 export interface ItemTag {
