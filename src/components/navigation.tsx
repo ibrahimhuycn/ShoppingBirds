@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, ShoppingCart, Store, Package, BarChart3, Settings, Menu, X } from "lucide-react"
+import { Home, ShoppingCart, Store, Package, Receipt, BarChart3, Settings, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/contexts/translation-context"
@@ -13,6 +13,7 @@ const navigationItems = [
   { key: "pos", href: "/pos", icon: ShoppingCart, label: "POS" },
   { key: "stores", href: "/stores", icon: Store, label: "Stores" },
   { key: "items", href: "/items", icon: Package, label: "Items" },
+  { key: "transactions", href: "/transactions", icon: Receipt, label: "Transactions" },
   { key: "reports", href: "/reports", icon: BarChart3, label: "Reports" },
   { key: "settings", href: "/settings", icon: Settings, label: "Settings" },
 ]

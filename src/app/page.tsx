@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ShoppingCart, Store, Package, BarChart3 } from "lucide-react"
+import { ShoppingCart, Store, Package, Receipt, BarChart3 } from "lucide-react"
 import { useI18n } from "@/contexts/translation-context"
 import Link from "next/link"
 
@@ -24,6 +24,12 @@ const quickActions = [
     href: "/items",
     icon: Package,
     color: "bg-purple-500",
+  },
+  {
+    key: "transactions",
+    href: "/transactions",
+    icon: Receipt,
+    color: "bg-indigo-500",
   },
   {
     key: "reports",
