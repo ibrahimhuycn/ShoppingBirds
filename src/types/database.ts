@@ -158,8 +158,12 @@ export type Database = {
           created_at: string | null
           date: string
           id: number
+          notes: string | null
           number: string
+          session_name: string | null
+          status: string | null
           store_id: number
+          suspended_at: string | null
           total: number
           updated_at: string | null
           user_id: number
@@ -169,8 +173,12 @@ export type Database = {
           created_at?: string | null
           date: string
           id?: number
+          notes?: string | null
           number: string
+          session_name?: string | null
+          status?: string | null
           store_id: number
+          suspended_at?: string | null
           total: number
           updated_at?: string | null
           user_id: number
@@ -180,8 +188,12 @@ export type Database = {
           created_at?: string | null
           date?: string
           id?: number
+          notes?: string | null
           number?: string
+          session_name?: string | null
+          status?: string | null
           store_id?: number
+          suspended_at?: string | null
           total?: number
           updated_at?: string | null
           user_id?: number

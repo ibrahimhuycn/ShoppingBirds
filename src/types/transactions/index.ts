@@ -36,6 +36,10 @@ export interface Transaction {
   total: number;
   createdAt: string;
   updatedAt: string | null;
+  status: TransactionStatus;
+  suspendedAt: string | null;
+  sessionName: string | null;
+  notes: string | null;
   store: {
     id: number;
     name: string;
@@ -108,13 +112,75 @@ export interface TransactionSummary {
 }
 
 // Transaction status types
-export type TransactionStatus = 'completed' | 'pending' | 'cancelled' | 'refunded';
+export type TransactionStatus = 'suspended' | 'completed' | 'cancelled' | 'refunded';
 
 // Transaction search and sort options
 export interface TransactionSearchOptions {
-  sortBy: 'date' | 'total' | 'number' | 'store';
+  sortBy: 'date' | 'total' | 'number' | 'store' | 'status';
   sortOrder: 'asc' | 'desc';
   page: number;
   limit: number;
   filters: TransactionFilters;
+}
+
+// Suspended transaction management types
+export interface SuspendTransactionRequest {
+  sessionName: string;
+  notes?: string;
+  cart: {
+    id: number;
+    priceListId: number;
+    description: string;
+    barcode: string;
+    basePrice: number;
+    taxAmount: number;
+    finalPrice: number;
+    quantity: number;
+    unit: string;
+    currencyId: number;
+    taxBreakdown: TaxBreakdownItem[];
+    hasCustomTaxes: boolean;
+  }[];
+  adjustAmount: number;
+  storeId: number;
+  userId: number;
+}
+
+export interface SuspendedTransaction {
+  id: number;
+  number: string;
+  sessionName: string | null;
+  notes: string | null;
+  total: number;
+  adjustAmount: number;
+  suspendedAt: string;
+  store: {
+    id: number;
+    name: string;
+  };
+  user: {
+    id: number;
+    fullName: string;
+    username: string;
+  };
+  itemCount: number;
+}
+
+export interface ResumeTransactionData {
+  transaction: Transaction;
+  cartItems: {
+    id: number;
+    priceListId: number;
+    description: string;
+    barcode: string;
+    basePrice: number;
+    taxAmount: number;
+    finalPrice: number;
+    quantity: number;
+    unit: string;
+    currencyId: number;
+    currency?: Currency;
+    taxBreakdown: TaxBreakdownItem[];
+    hasCustomTaxes: boolean;
+  }[];
 }
