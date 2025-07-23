@@ -10,15 +10,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, Plus, ShoppingCart, Scan } from "lucide-react"
+import { Trash2, Plus, ShoppingCart, Scan, Clock, Save, Receipt } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { formatCurrency, generateInvoiceNumber } from "@/lib/utils"
 import { searchItemByBarcodeWithVariants } from "@/lib/barcode-search"
 import { useI18n } from "@/contexts/translation-context"
 import { toast } from "sonner"
+import { SuspendedTransactionService } from "@/lib/suspended-transaction-service"
+import { SuspendTransactionDialog, SuspendedTransactionsDialog } from "@/components/transactions"
 import type { Database, PriceWithTaxes } from "@/types/database";
 import type { Currency } from "@/types/currency";
 import type { TaxBreakdownItem } from "@/types/tax";
+import type { SuspendTransactionRequest } from "@/types/transactions";
 
 // Use proper Supabase types
 type Store = Database['public']['Tables']['stores']['Row']
@@ -58,6 +61,9 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [adjustAmount, setAdjustAmount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [showSuspendDialog, setShowSuspendDialog] = useState<boolean>(false)
+  const [showSuspendedTransactions, setShowSuspendedTransactions] = useState<boolean>(false)
+  const [isResumingTransaction, setIsResumingTransaction] = useState<boolean>(false)
 
   useEffect(() => {
     loadInitialData();
@@ -85,7 +91,98 @@ export default function POSPage() {
     } catch (error) {
       console.error("Error loading currency:", error);
     }
+  }
+
+  const suspendTransaction = async (sessionName: string, notes?: string): Promise<void> => {
+    if (!selectedStore || cart.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      const suspendRequest: SuspendTransactionRequest = {
+        sessionName,
+        notes,
+        cart: cart.map(item => ({
+          id: item.id,
+          priceListId: item.priceListId,
+          description: item.description,
+          barcode: item.barcode,
+          basePrice: item.basePrice,
+          taxAmount: item.taxAmount,
+          finalPrice: item.finalPrice,
+          quantity: item.quantity,
+          unit: item.unit,
+          currencyId: item.currencyId,
+          taxBreakdown: item.taxBreakdown,
+          hasCustomTaxes: item.hasCustomTaxes
+        })),
+        adjustAmount,
+        storeId: parseInt(selectedStore),
+        userId: 1 // Default user for now
+      };
+
+      await SuspendedTransactionService.suspendTransaction(suspendRequest);
+      
+      // Clear cart and reset
+      setCart([]);
+      setAdjustAmount(0);
+      setBarcode("");
+      setShowSuspendDialog(false);
+      
+      toast.success("Transaction Suspended!", {
+        description: `Transaction "${sessionName}" has been saved. You can resume it later.`,
+        duration: 5000
+      });
+    } catch (error) {
+      console.error("Error suspending transaction:", error);
+      toast.error("Suspend Error", {
+        description: "Failed to suspend the transaction. Please try again."
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const resumeTransaction = async (transactionId: number): Promise<void> => {
+    setIsResumingTransaction(true);
+    try {
+      const { transaction, cartItems } = await SuspendedTransactionService.resumeTransaction(transactionId);
+      
+      // Set store if different
+      setSelectedStore(transaction.store.id.toString());
+      
+      // Convert resumed items back to cart format
+      const resumedCart = cartItems.map(item => ({
+        id: item.id,
+        priceListId: item.priceListId,
+        description: item.description,
+        barcode: item.barcode,
+        basePrice: item.basePrice,
+        taxAmount: item.taxAmount,
+        finalPrice: item.finalPrice,
+        quantity: item.quantity,
+        unit: item.unit,
+        currencyId: item.currencyId,
+        currency: item.currency,
+        taxBreakdown: item.taxBreakdown,
+        hasCustomTaxes: item.hasCustomTaxes
+      }));
+      
+      setCart(resumedCart);
+      setAdjustAmount(transaction.adjustAmount);
+      
+      toast.success("Transaction Resumed!", {
+        description: `Transaction "${transaction.sessionName || transaction.number}" has been loaded.`,
+        duration: 5000
+      });
+    } catch (error) {
+      console.error("Error resuming transaction:", error);
+      toast.error("Resume Error", {
+        description: "Failed to resume the transaction. Please try again."
+      });
+    } finally {
+      setIsResumingTransaction(false);
+    }
+  };;
 
   const loadInitialData = async (): Promise<void> => {
     try {
@@ -348,16 +445,27 @@ export default function POSPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{t("pos.title")}</h1>
-        <Button
-          onClick={() => {
-            setCart([])
-            setAdjustAmount(0)
-            setBarcode("")
-          }}
-          variant="outline"
-        >
-          {t("pos.newTransaction")}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowSuspendedTransactions(true)}
+            variant="outline"
+            className="flex items-center gap-2"
+            disabled={isResumingTransaction}
+          >
+            <Clock className="size-4" />
+            {isResumingTransaction ? "Loading..." : "Suspended"}
+          </Button>
+          <Button
+            onClick={() => {
+              setCart([])
+              setAdjustAmount(0)
+              setBarcode("")
+            }}
+            variant="outline"
+          >
+            {t("pos.newTransaction")}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -373,7 +481,7 @@ export default function POSPage() {
                 Supports UPC, EAN, GTIN codes and store-specific barcodes
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">{t("pos.selectStore")}</label>
@@ -446,7 +554,16 @@ export default function POSPage() {
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="size-5" />
-                  Cart ({cart.length} items)
+                  <span>Cart ({cart.length} items)</span>
+                  {cart.length > 0 && (
+                    <div className="flex gap-1">
+                      {cart.filter(item => item.hasCustomTaxes).length > 0 && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800">
+                          {cart.filter(item => item.hasCustomTaxes).length} taxed
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   Currency: {baseCurrency?.symbol} {baseCurrency?.code}
@@ -461,47 +578,90 @@ export default function POSPage() {
               ) : (
                 <div className="space-y-4">
                   {cart.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div key={item.id} className="flex items-start justify-between p-3 border rounded-lg bg-card">
                       <div className="flex-1">
-                        <p className="font-medium">{item.description}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.barcode} • <MoneyDisplay amount={item.basePrice} currencyId={item.currencyId} /> per {item.unit}
-                          {item.hasCustomTaxes && (
-                            <span className="ml-2 text-xs bg-primary/10 text-primary px-1 rounded">
-                              +{formatCurrency(item.taxAmount, baseCurrency?.code || 'USD')} tax
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-medium">{item.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.barcode} • {item.unit}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFromCart(item.id)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 w-6 p-0"
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                        
+                        {/* Compact Price Information */}
+                        <div className="flex items-center gap-4 text-sm mb-2">
+                          <div>
+                            <span className="text-muted-foreground text-xs">Base: </span>
+                            <span className="font-medium">
+                              <MoneyDisplay amount={item.basePrice} currencyId={item.currencyId} />
                             </span>
-                          )}
-                        </p>
-                        {item.hasCustomTaxes && (
-                          <p className="text-xs text-muted-foreground">
-                            Final: <MoneyDisplay amount={item.finalPrice} currencyId={item.currencyId} /> per {item.unit}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="1"
-                          step="0.01"
-                          value={item.quantity}
-                          onChange={(e) => updateQuantity(item.id, parseFloat(e.target.value) || 0)}
-                          className="w-20"
-                        />
-                        <div className="text-sm font-medium min-w-20 text-right">
-                          <MoneyDisplay amount={item.finalPrice * item.quantity} currencyId={item.currencyId} />
+                          </div>
+                          
                           {item.hasCustomTaxes && (
-                            <div className="text-xs text-muted-foreground">
-                              Base: <MoneyDisplay amount={item.basePrice * item.quantity} currencyId={item.currencyId} />
+                            <div>
+                              <span className="text-muted-foreground text-xs flex items-center gap-1">
+                                <Receipt className="size-2" />
+                                Tax: 
+                              </span>
+                              <span className="font-medium text-amber-600">
+                                +<MoneyDisplay amount={item.taxAmount} currencyId={item.currencyId} />
+                              </span>
                             </div>
                           )}
+                          
+                          <div>
+                            <span className="text-muted-foreground text-xs">Final: </span>
+                            <span className="font-semibold text-green-600">
+                              <MoneyDisplay amount={item.finalPrice} currencyId={item.currencyId} />
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 ml-auto">
+                            <span className="text-muted-foreground text-xs">Qty:</span>
+                            <Input
+                              type="number"
+                              min="1"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(item.id, parseFloat(e.target.value) || 0)}
+                              className="w-16 h-6 text-xs"
+                            />
+                          </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFromCart(item.id)}
-                        >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
+                        
+                        {/* Compact Tax Breakdown */}
+                        {item.hasCustomTaxes && item.taxBreakdown.length > 0 && (
+                          <div className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                            <span className="font-medium">Taxes: </span>
+                            {item.taxBreakdown.map((tax, index) => (
+                              <span key={tax.taxId}>
+                                {index > 0 && ', '}
+                                {tax.taxName} ({tax.percentage}%): <MoneyDisplay amount={tax.amount} currencyId={item.currencyId} />
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Compact Line Total */}
+                      <div className="ml-3 text-right">
+                        <p className="font-bold">
+                          <MoneyDisplay amount={item.finalPrice * item.quantity} currencyId={item.currencyId} />
+                        </p>
+                        {item.hasCustomTaxes && (
+                          <p className="text-xs text-amber-600">
+                            (+<MoneyDisplay amount={item.taxAmount * item.quantity} currencyId={item.currencyId} /> tax)
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -516,28 +676,28 @@ export default function POSPage() {
               <CardTitle>{t("pos.total")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm">
                 <span>{t("pos.subtotal")} (Base)</span>
                 <MoneyDisplay 
                   amount={calculateSubtotal()} 
                   currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
                 />
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm">
                 <span>Total Tax</span>
                 <MoneyDisplay 
                   amount={calculateTotalTax()} 
                   currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
                 />
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm">
                 <span>{t("pos.adjustAmount")}</span>
                 <MoneyDisplay 
                   amount={adjustAmount} 
                   currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
                 />
               </div>
-              <div className="flex justify-between text-lg font-semibold border-t pt-2">
+              <div className="flex justify-between text-base font-semibold border-t pt-2">
                 <span>{t("pos.finalTotal")}</span>
                 <MoneyDisplay 
                   amount={calculateTotal()} 
@@ -546,47 +706,78 @@ export default function POSPage() {
                 />
               </div>
               
-              {/* Tax Details Expansion */}
+              {/* Compact Tax Summary */}
               {calculateTotalTax() > 0 && (
-                <Card className="bg-muted/50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Tax Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="space-y-1 text-sm">
-                      {cart.filter(item => item.hasCustomTaxes).map((item) => (
-                        <div key={item.id} className="space-y-1">
-                          <div className="font-medium text-xs text-muted-foreground">{item.description}:</div>
-                          {item.taxBreakdown.map((tax) => (
-                            <div key={tax.taxId} className="flex justify-between text-xs ml-2">
-                              <span>{tax.taxName} ({tax.percentage}%) × {item.quantity}</span>
-                              <span>
-                                <MoneyDisplay 
-                                  amount={tax.amount * item.quantity} 
-                                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
-                                />
-                              </span>
-                            </div>
+                <div className="bg-muted/50 border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Tax Summary</span>
+                    <span className="text-sm font-semibold text-amber-600">
+                      <MoneyDisplay 
+                        amount={calculateTotalTax()} 
+                        currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
+                      />
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {cart.filter(item => item.hasCustomTaxes).map((item) => (
+                      <div key={item.id} className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{item.description}:</span>
+                        <div className="text-amber-600">
+                          {item.taxBreakdown.map((tax, index) => (
+                            <span key={tax.taxId}>
+                              {index > 0 && ' + '}
+                              <MoneyDisplay 
+                                amount={tax.amount * item.quantity} 
+                                currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
+                              />
+                            </span>
                           ))}
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
               
-              <Button
-                onClick={processPayment}
-                disabled={cart.length === 0 || isLoading}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? t("common.loading") : t("pos.processPayment")}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowSuspendDialog(true)}
+                  disabled={cart.length === 0 || isLoading}
+                  variant="outline"
+                  className="flex-1 flex items-center gap-2"
+                >
+                  <Save className="size-4" />
+                  Suspend
+                </Button>
+                <Button
+                  onClick={processPayment}
+                  disabled={cart.length === 0 || isLoading}
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isLoading ? t("common.loading") : t("pos.processPayment")}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
       </div>
+      
+      {/* Suspend Transaction Dialog */}
+      <SuspendTransactionDialog
+        open={showSuspendDialog}
+        onOpenChange={setShowSuspendDialog}
+        onSuspend={suspendTransaction}
+        isLoading={isLoading}
+      />
+      
+      {/* Suspended Transactions Dialog */}
+      <SuspendedTransactionsDialog
+        open={showSuspendedTransactions}
+        onOpenChange={setShowSuspendedTransactions}
+        onResumeTransaction={resumeTransaction}
+        currentStoreId={selectedStore ? parseInt(selectedStore) : undefined}
+      />
     </div>
   )
 }

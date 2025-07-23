@@ -4,7 +4,8 @@ import type {
   TransactionFilters, 
   TransactionSearchOptions,
   InvoiceWithDetails,
-  TransactionSummary 
+  TransactionSummary,
+  TransactionStatus
 } from "@/types/transactions";
 import type { Currency } from "@/types/currency";
 import type { TaxBreakdownItem } from "@/types/tax";
@@ -12,6 +13,7 @@ import type { TaxBreakdownItem } from "@/types/tax";
 export class TransactionService {
   /**
    * Fetch transactions with filters and pagination
+   * Only returns completed transactions (excludes suspended ones)
    */
   static async getTransactions(options: TransactionSearchOptions): Promise<{
     transactions: Transaction[];
@@ -34,7 +36,8 @@ export class TransactionService {
             tax_types (name, percentage)
           )
         )
-      `, { count: 'exact' });
+      `, { count: 'exact' })
+      .eq('status', 'completed'); // Only show completed transactions
     
     // Apply filters
     if (filters.dateFrom) {
@@ -295,6 +298,10 @@ export class TransactionService {
       total: invoice.total,
       createdAt: invoice.created_at || '',
       updatedAt: invoice.updated_at,
+      status: (invoice.status as TransactionStatus) || 'completed',
+      suspendedAt: invoice.suspended_at,
+      sessionName: invoice.session_name,
+      notes: invoice.notes,
       store: {
         id: invoice.stores.id,
         name: invoice.stores.name
