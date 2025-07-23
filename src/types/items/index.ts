@@ -10,6 +10,7 @@ export type PriceListRow = Database['public']['Tables']['price_lists']['Row'];
 export interface PriceList extends PriceListRow {
   stores: { name: string };
   units: { unit: string; description: string };
+  currencies?: { id: number; code: string; symbol: string; name: string } | null;
 }
 
 export interface ItemTag {
@@ -32,6 +33,7 @@ export interface PriceFormData {
   store_id: string;
   retail_price: string;
   unit_id: string;
+  selectedTaxIds?: number[];
 }
 
 export interface AddItemFormData {
@@ -118,6 +120,7 @@ export interface AddPriceFormProps {
   onSubmit: (itemId: number, data: PriceFormData) => Promise<void>;
   onCancel: () => void;
   isLoading: boolean;
+  showTaxSelector?: boolean;
 }
 
 // UPC related types

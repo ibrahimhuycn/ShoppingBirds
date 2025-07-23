@@ -56,32 +56,83 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_detail_taxes: {
+        Row: {
+          created_at: string | null
+          id: number
+          invoice_detail_id: number
+          tax_amount: number
+          tax_percentage: number
+          tax_type_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          invoice_detail_id: number
+          tax_amount: number
+          tax_percentage: number
+          tax_type_id: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          invoice_detail_id?: number
+          tax_amount?: number
+          tax_percentage?: number
+          tax_type_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_detail_taxes_invoice_detail_id_fkey"
+            columns: ["invoice_detail_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_detail_taxes_tax_type_id_fkey"
+            columns: ["tax_type_id"]
+            isOneToOne: false
+            referencedRelation: "tax_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_details: {
         Row: {
+          base_price: number
           created_at: string | null
           id: number
           invoice_id: number
           item_id: number
           price: number
           quantity: number
+          tax_amount: number | null
+          total_price: number
           updated_at: string | null
         }
         Insert: {
+          base_price: number
           created_at?: string | null
           id?: number
           invoice_id: number
           item_id: number
           price: number
           quantity: number
+          tax_amount?: number | null
+          total_price: number
           updated_at?: string | null
         }
         Update: {
+          base_price?: number
           created_at?: string | null
           id?: number
           invoice_id?: number
           item_id?: number
           price?: number
           quantity?: number
+          tax_amount?: number | null
+          total_price?: number
           updated_at?: string | null
         }
         Relationships: [
@@ -371,60 +422,54 @@ export type Database = {
           },
         ]
       }
-      price_history: {
+      price_list_taxes: {
         Row: {
           created_at: string | null
-          currency: string | null
-          currency_id: number | null
-          date_recorded: string
+          effective_date: string
           id: number
-          item_id: number
-          price: number
-          source: string | null
-          store_id: number
+          is_active: boolean
+          price_list_id: number
+          tax_type_id: number
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
-          currency?: string | null
-          currency_id?: number | null
-          date_recorded?: string
+          effective_date?: string
           id?: number
-          item_id: number
-          price: number
-          source?: string | null
-          store_id: number
+          is_active?: boolean
+          price_list_id: number
+          tax_type_id: number
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
-          currency?: string | null
-          currency_id?: number | null
-          date_recorded?: string
+          effective_date?: string
           id?: number
-          item_id?: number
-          price?: number
-          source?: string | null
-          store_id?: number
+          is_active?: boolean
+          price_list_id?: number
+          tax_type_id?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "price_history_currency_id_fkey"
-            columns: ["currency_id"]
+            foreignKeyName: "price_list_taxes_price_list_id_fkey"
+            columns: ["price_list_id"]
             isOneToOne: false
-            referencedRelation: "currencies"
+            referencedRelation: "price_lists"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "price_history_item_id_fkey"
-            columns: ["item_id"]
+            foreignKeyName: "price_list_taxes_price_list_id_fkey"
+            columns: ["price_list_id"]
             isOneToOne: false
-            referencedRelation: "items"
-            referencedColumns: ["id"]
+            referencedRelation: "price_with_taxes"
+            referencedColumns: ["price_list_id"]
           },
           {
-            foreignKeyName: "price_history_store_id_fkey"
-            columns: ["store_id"]
+            foreignKeyName: "price_list_taxes_tax_type_id_fkey"
+            columns: ["tax_type_id"]
             isOneToOne: false
-            referencedRelation: "stores"
+            referencedRelation: "tax_types"
             referencedColumns: ["id"]
           },
         ]
@@ -551,6 +596,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tax_types: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: number
+          is_active: boolean
+          is_default: boolean
+          name: string
+          percentage: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          percentage?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          percentage?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       units: {
         Row: {
           created_at: string | null
@@ -655,9 +733,102 @@ export type Database = {
           },
         ]
       }
+      price_with_taxes: {
+        Row: {
+          applied_taxes: Json[] | null
+          barcode: string | null
+          base_price: number | null
+          currency: string | null
+          currency_id: number | null
+          item_id: number | null
+          price_active: boolean | null
+          price_effective_date: string | null
+          price_list_id: number | null
+          price_with_taxes: number | null
+          store_id: number | null
+          tax_count: number | null
+          total_tax_amount: number | null
+          total_tax_percentage: number | null
+          unit_id: number | null
+          uses_default_no_tax: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_lists_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_lists_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_lists_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_lists_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      [_ in never]: never
+      get_applicable_taxes: {
+        Args: { p_price_list_id: number }
+        Returns: {
+          tax_id: number
+          tax_name: string
+          tax_percentage: number
+          tax_amount: number
+          is_default: boolean
+        }[]
+      }
+      get_item_price_trend: {
+        Args: { p_item_id: number; p_days?: number }
+        Returns: {
+          store_name: string
+          price_date: string
+          price: number
+          currency: string
+          change_type: string
+          price_change_percentage: number
+        }[]
+      }
+      get_item_store_price_trend: {
+        Args: { p_item_id: number; p_store_id: number; p_days?: number }
+        Returns: {
+          price_date: string
+          price: number
+          currency: string
+          change_type: string
+          price_change_percentage: number
+          barcode: string
+        }[]
+      }
+      get_price_comparison: {
+        Args: { p_item_id: number; p_store_id?: number }
+        Returns: {
+          store_name: string
+          current_price: number
+          previous_price: number
+          price_change_amount: number
+          price_change_percentage: number
+          last_changed: string
+          currency: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -790,3 +961,41 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+// Tax System Types - Enhanced with proper database types
+export interface TaxCalculation {
+  basePrice: number;
+  appliedTaxes: AppliedTax[];
+  totalTaxAmount: number;
+  totalTaxPercentage: number;
+  finalPrice: number;
+  usesDefaultNoTax: boolean;
+}
+
+export interface AppliedTax {
+  taxId: number;
+  taxName: string;
+  percentage: number;
+  amount: number;
+  effectiveDate: string;
+  isDefault?: boolean;
+}
+
+export interface PriceWithTaxes {
+  priceListId: number;
+  itemId: number;
+  storeId: number;
+  barcode: string;
+  basePrice: number;
+  currency: string | null;
+  currencyId: number | null;
+  unitId: number;
+  priceActive: boolean;
+  priceEffectiveDate: string | null;
+  totalTaxPercentage: number;
+  totalTaxAmount: number;
+  priceWithTaxes: number;
+  appliedTaxes: AppliedTax[];
+  taxCount: number;
+  usesDefaultNoTax: boolean;
+}

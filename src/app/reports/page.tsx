@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { BarChart3, TrendingUp, DollarSign, Package, Calendar } from "lucide-react"
+import { MoneyDisplay } from "@/components/currency"
+import { BarChart3, TrendingUp, DollarSign, Package, Calendar, Receipt, AlertCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { getTranslations, useTranslation } from "@/lib/i18n"
-import { defaultLocale } from "@/lib/i18n/config"
+import { useI18n } from "@/contexts/translation-context"
 import type { Database } from "@/types/database"
 
 // Use proper Supabase types
@@ -27,9 +27,16 @@ interface TransactionRecord {
   invoice_details_id: number
   quantity: number
   rate: number
+  base_price: number
+  tax_amount: number
+  total_price: number
   adjust_amount: number
   total: number
   invoice_date: string
+  currency_id: number | null
+  currency_code: string | null
+  currency_symbol: string | null
+  legacy_currency: string | null
 }
 
 interface ReportStats {
@@ -37,20 +44,22 @@ interface ReportStats {
   totalRevenue: number
   totalItems: number
   averageTransaction: number
+  primaryCurrencyId: number | null
 }
 
 export default function ReportsPage() {
+  const { t } = useI18n()
   const [transactions, setTransactions] = useState<TransactionRecord[]>([])
   const [stats, setStats] = useState<ReportStats>({
     totalTransactions: 0,
     totalRevenue: 0,
     totalItems: 0,
     averageTransaction: 0,
+    primaryCurrencyId: null,
   })
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
 
   const loadTransactions = useCallback(async (start?: string, end?: string): Promise<void> => {
     setIsLoading(true)
@@ -63,11 +72,16 @@ export default function ReportsPage() {
           total,
           adjust_amount,
           date,
+          store_id,
           stores (name),
           invoice_details (
             id,
             quantity,
             price,
+            base_price,
+            tax_amount,
+            total_price,
+            item_id,
             items (id, description)
           )
         `)
@@ -88,49 +102,87 @@ export default function ReportsPage() {
       const transformedData: TransactionRecord[] = []
       let totalRevenue = 0
       let totalItems = 0
+      const currencyFrequency: Record<number, number> = {}
 
-      data?.forEach((invoice) => {
-        invoice.invoice_details.forEach((detail) => {
-          // Handle items as array and take the first (and should be only) item
-          const items = detail.items
-          if (items && Array.isArray(items) && items.length > 0) {
-            const item = items[0] // Take the first item
-            transformedData.push({
+      // Get currency information for each item in parallel
+      const currencyPromises = data?.map(async (invoice) => {
+        const storeId = invoice.store_id
+        
+        return Promise.all(
+          invoice.invoice_details.map(async (detail) => {
+            const items = detail.items
+            if (!items || (Array.isArray(items) && items.length === 0)) {
+              return null
+            }
+            
+            const item = Array.isArray(items) ? items[0] : items
+            
+            // Get currency info from price_lists for this store+item combination
+            const { data: priceListData } = await supabase
+              .from('price_lists')
+              .select(`
+                currency,
+                currency_id,
+                currencies (id, code, symbol)
+              `)
+              .eq('item_id', item.id)
+              .eq('store_id', storeId)
+              .eq('is_active', true)
+              .single()
+            
+            const currencyId = priceListData?.currency_id || null
+            const currencyInfo = priceListData?.currencies
+            
+            if (currencyId) {
+              currencyFrequency[currencyId] = (currencyFrequency[currencyId] || 0) + 1
+            }
+            
+            return {
               invoice_id: invoice.id,
               invoice_number: invoice.number,
               item_id: item.id,
               item_name: item.description,
-              store_id: 0, // This might need to come from the invoice or stores relation
+              store_id: storeId,
               store: (invoice.stores as any)?.name || 'N/A',
               invoice_details_id: detail.id,
               quantity: detail.quantity,
               rate: detail.price,
+              base_price: detail.base_price || detail.price,
+              tax_amount: detail.tax_amount || 0,
+              total_price: detail.total_price || detail.price,
               adjust_amount: invoice.adjust_amount,
               total: invoice.total,
               invoice_date: invoice.date,
-            })
-          } else if (items && !Array.isArray(items)) {
-            // Handle case where items is a single object (not array)
-            const item = items as any
-            transformedData.push({
-              invoice_id: invoice.id,
-              invoice_number: invoice.number,
-              item_id: item.id,
-              item_name: item.description,
-              store_id: 0,
-              store: (invoice.stores as any)?.name || 'N/A',
-              invoice_details_id: detail.id,
-              quantity: detail.quantity,
-              rate: detail.price,
-              adjust_amount: invoice.adjust_amount,
-              total: invoice.total,
-              invoice_date: invoice.date,
-            })
+              currency_id: currencyId,
+              currency_code: currencyInfo?.code || null,
+              currency_symbol: currencyInfo?.symbol || null,
+              legacy_currency: priceListData?.currency || null,
+            }
+          })
+        )
+      }) || []
+
+      const allDetails = await Promise.all(currencyPromises)
+      
+      allDetails.forEach((invoiceDetails) => {
+        invoiceDetails.forEach((detail) => {
+          if (detail) {
+            transformedData.push(detail)
           }
         })
+      })
+
+      data?.forEach((invoice) => {
         totalRevenue += invoice.total
         totalItems += invoice.invoice_details.length
       })
+      
+      // Find the most common currency for stats display
+      const primaryCurrencyId = Object.keys(currencyFrequency).length > 0
+        ? Number(Object.keys(currencyFrequency).reduce((a, b) => 
+            currencyFrequency[Number(a)] > currencyFrequency[Number(b)] ? a : b
+          ))
+        : null
 
       setTransactions(transformedData)
       setStats({
@@ -138,6 +190,7 @@ export default function ReportsPage() {
         totalRevenue,
         totalItems,
         averageTransaction: data?.length ? totalRevenue / data.length : 0,
+        primaryCurrencyId,
       })
     } catch (error) {
       console.error("Error loading transactions:", error)
@@ -149,10 +202,6 @@ export default function ReportsPage() {
 
   const loadInitialData = useCallback(async (): Promise<void> => {
     try {
-      // Load translations
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
-
       // Load all transactions
       await loadTransactions()
     } catch (error) {
@@ -176,12 +225,6 @@ export default function ReportsPage() {
     setStartDate("")
     setEndDate("")
     loadTransactions()
-  }
-
-  const { t } = useTranslation(defaultLocale, translations)
-
-  if (!translations) {
-    return <div>Loading...</div>
   }
 
   return (
@@ -249,7 +292,16 @@ export default function ReportsPage() {
                 <DollarSign className="size-5 text-white" />
               </div>
               <div>
-                <CardTitle className="text-2xl">{formatCurrency(stats.totalRevenue)}</CardTitle>
+                <CardTitle className="text-2xl">
+                  {stats.primaryCurrencyId ? (
+                    <MoneyDisplay amount={stats.totalRevenue} currencyId={stats.primaryCurrencyId} />
+                  ) : (
+                    <span className="flex items-center gap-1" title="Mixed currencies">
+                      {formatCurrency(stats.totalRevenue)}
+                      <AlertCircle className="size-4 text-amber-500" />
+                    </span>
+                  )}
+                </CardTitle>
                 <CardDescription>Total Revenue</CardDescription>
               </div>
             </div>
@@ -277,7 +329,16 @@ export default function ReportsPage() {
                 <TrendingUp className="size-5 text-white" />
               </div>
               <div>
-                <CardTitle className="text-2xl">{formatCurrency(stats.averageTransaction)}</CardTitle>
+                <CardTitle className="text-2xl">
+                  {stats.primaryCurrencyId ? (
+                    <MoneyDisplay amount={stats.averageTransaction} currencyId={stats.primaryCurrencyId} />
+                  ) : (
+                    <span className="flex items-center gap-1" title="Mixed currencies">
+                      {formatCurrency(stats.averageTransaction)}
+                      <AlertCircle className="size-4 text-amber-500" />
+                    </span>
+                  )}
+                </CardTitle>
                 <CardDescription>Average Transaction</CardDescription>
               </div>
             </div>
@@ -323,46 +384,98 @@ export default function ReportsPage() {
                     adjust_amount: transaction.adjust_amount,
                     invoice_date: transaction.invoice_date,
                     items: [transaction],
+                    // Use the currency from the first item for invoice total
+                    currency_id: transaction.currency_id,
+                    currency_code: transaction.currency_code,
+                    currency_symbol: transaction.currency_symbol,
                   })
                 }
                 return acc
-              }, [] as any[]).map((invoice) => (
-                <div key={invoice.invoice_id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold">{invoice.invoice_number}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {invoice.store} • {formatDate(invoice.invoice_date)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(invoice.total)}</p>
-                      {invoice.adjust_amount !== 0 && (
+              }, [] as any[]).map((invoice) => {
+                const hasMixedCurrencies = invoice.items.some(
+                  (item: TransactionRecord) => item.currency_id !== invoice.currency_id
+                )
+                
+                return (
+                  <div key={invoice.invoice_id} className="border rounded-lg p-4 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Receipt className="size-4 text-muted-foreground" />
+                          <h4 className="font-semibold">{invoice.invoice_number}</h4>
+                          {hasMixedCurrencies && (
+                            <AlertCircle className="size-4 text-amber-500" />
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
-                          Adjust: {formatCurrency(invoice.adjust_amount)}
+                          {invoice.store} • {formatDate(invoice.invoice_date)}
                         </p>
-                      )}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold">
+                          {invoice.currency_id ? (
+                            <MoneyDisplay amount={invoice.total} currencyId={invoice.currency_id} />
+                          ) : (
+                            <span className="flex items-center gap-1" title="Currency not configured">
+                              {formatCurrency(invoice.total)}
+                              <AlertCircle className="size-3 text-amber-500" />
+                            </span>
+                          )}
+                        </p>
+                        {invoice.adjust_amount !== 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            Adjust: {invoice.currency_id ? (
+                              <MoneyDisplay amount={invoice.adjust_amount} currencyId={invoice.currency_id} />
+                            ) : (
+                              formatCurrency(invoice.adjust_amount)
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {invoice.items.map((item: TransactionRecord) => (
+                        <div key={item.invoice_details_id} className="flex items-center justify-between text-sm bg-muted/20 p-2 rounded">
+                          <div className="flex-1">
+                            <span className="font-medium">{item.item_name}</span>
+                            {item.tax_amount > 0 && (
+                              <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1 rounded">
+                                +{item.currency_id ? (
+                                  <MoneyDisplay amount={item.tax_amount} currencyId={item.currency_id} />
+                                ) : (
+                                  formatCurrency(item.tax_amount)
+                                )} tax
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-muted-foreground">
+                              {item.quantity} × {item.currency_id ? (
+                                <MoneyDisplay amount={item.base_price} currencyId={item.currency_id} />
+                              ) : (
+                                <span className="flex items-center gap-1" title="Currency not configured">
+                                  {formatCurrency(item.rate, item.legacy_currency || 'USD')}
+                                  {!item.currency_id && <AlertCircle className="size-3 text-amber-500" />}
+                                </span>
+                              )}
+                            </span>
+                            <span className="font-medium min-w-20 text-right">
+                              {item.currency_id ? (
+                                <MoneyDisplay amount={item.total_price * item.quantity} currencyId={item.currency_id} />
+                              ) : (
+                                <span className="flex items-center gap-1" title="Currency not configured">
+                                  {formatCurrency(item.quantity * item.rate, item.legacy_currency || 'USD')}
+                                  {!item.currency_id && <AlertCircle className="size-3 text-amber-500" />}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    {invoice.items.map((item: TransactionRecord) => (
-                      <div key={item.invoice_details_id} className="flex items-center justify-between text-sm">
-                        <div className="flex-1">
-                          <span className="font-medium">{item.item_name}</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-muted-foreground">
-                            {item.quantity} × {formatCurrency(item.rate)}
-                          </span>
-                          <span className="font-medium min-w-20 text-right">
-                            {formatCurrency(item.quantity * item.rate)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>

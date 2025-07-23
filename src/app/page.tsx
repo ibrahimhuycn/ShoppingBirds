@@ -1,33 +1,38 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ShoppingCart, Store, Package, BarChart3 } from "lucide-react"
+import { ShoppingCart, Store, Package, Receipt, BarChart3 } from "lucide-react"
+import { useI18n } from "@/contexts/translation-context"
 import Link from "next/link"
 
 const quickActions = [
   {
-    title: "Point of Sale",
-    description: "Process transactions and scan items",
+    key: "pos",
     href: "/pos",
     icon: ShoppingCart,
     color: "bg-blue-500",
   },
   {
-    title: "Stores",
-    description: "Manage your stores and locations",
+    key: "stores", 
     href: "/stores",
     icon: Store,
     color: "bg-green-500",
   },
   {
-    title: "Items",
-    description: "Manage products and pricing",
+    key: "items",
     href: "/items",
     icon: Package,
     color: "bg-purple-500",
   },
   {
-    title: "Reports",
-    description: "View sales reports and analytics",
+    key: "transactions",
+    href: "/transactions",
+    icon: Receipt,
+    color: "bg-indigo-500",
+  },
+  {
+    key: "reports",
     href: "/reports",
     icon: BarChart3,
     color: "bg-orange-500",
@@ -35,15 +40,16 @@ const quickActions = [
 ]
 
 export default function HomePage() {
+  const { t } = useI18n()
 
   return (
     <div className="space-y-8">
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">
-          ShoppingBird
+          {t('app.title')}
         </h1>
         <p className="mt-6 text-lg leading-8 text-muted-foreground">
-          Smart Shopping Assistant
+          {t('app.subtitle')}
         </p>
       </div>
 
@@ -56,13 +62,13 @@ export default function HomePage() {
                 <div className={`inline-flex size-12 items-center justify-center rounded-lg ${action.color}`}>
                   <IconComponent className="size-6 text-white" />
                 </div>
-                <CardTitle className="text-lg">{action.title}</CardTitle>
-                <CardDescription>{action.description}</CardDescription>
+                <CardTitle className="text-lg">{t(`${action.key}.title`)}</CardTitle>
+                <CardDescription>{t(`${action.key}.scanBarcode`)}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button asChild className="w-full">
                   <Link href={action.href}>
-                    Go to {action.title}
+                    {t('common.next')} {t(`navigation.${action.key}`)}
                   </Link>
                 </Button>
               </CardContent>
@@ -74,21 +80,21 @@ export default function HomePage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Status</CardTitle>
+            <CardTitle>{t('common.status')}</CardTitle>
             <CardDescription>System overview</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Database</span>
-                <span className="text-sm text-green-600">Active</span>
+                <span className="text-sm text-green-600">{t('common.active')}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Stores</span>
+                <span className="text-sm font-medium">{t('navigation.stores')}</span>
                 <span className="text-sm text-muted-foreground">1 store</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Items</span>
+                <span className="text-sm font-medium">{t('navigation.items')}</span>
                 <span className="text-sm text-muted-foreground">1 item</span>
               </div>
             </div>

@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit, Trash2, Store, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { getTranslations, useTranslation } from "@/lib/i18n"
-import { defaultLocale } from "@/lib/i18n/config"
+import { useI18n } from "@/contexts/translation-context"
 import type { Database } from "@/types/database"
 
 // Use proper Supabase types
@@ -22,6 +21,7 @@ interface PaginationInfo {
 }
 
 export default function StoresPage() {
+  const { t } = useI18n()
   const [stores, setStores] = useState<Store[]>([])
   const [filteredStores, setFilteredStores] = useState<Store[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -35,14 +35,9 @@ export default function StoresPage() {
     totalItems: 0,
     itemsPerPage: 6
   })
-  const [translations, setTranslations] = useState<Record<string, any> | null>(null)
 
   const loadInitialData = useCallback(async (): Promise<void> => {
     try {
-      // Load translations
-      const trans = await getTranslations(defaultLocale)
-      setTranslations(trans)
-
       // Load stores
       await loadStores()
     } catch (error) {
@@ -197,12 +192,6 @@ export default function StoresPage() {
       itemsPerPage,
       currentPage: 1 // Reset to first page
     }))
-  }
-
-  const { t } = useTranslation(defaultLocale, translations)
-
-  if (!translations) {
-    return <div>Loading...</div>
   }
 
   return (

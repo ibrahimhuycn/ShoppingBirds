@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, Edit, Trash2, DollarSign, Scan } from 'lucide-react';
+import { Package, Edit, Trash2, DollarSign, Scan, AlertCircle, Info } from 'lucide-react';
+import { MoneyDisplay } from '@/components/currency';
 import { formatCurrency } from '@/lib/utils';
 import type { ItemCardProps } from '@/types/items';
 
@@ -158,6 +159,7 @@ export function ItemCard({
                   {item.lowest_recorded_price && formatCurrency(item.lowest_recorded_price, item.currency)}
                   {item.lowest_recorded_price && item.highest_recorded_price && ' - '}
                   {item.highest_recorded_price && formatCurrency(item.highest_recorded_price, item.currency)}
+                  <span className="ml-1 text-xs opacity-75">(Historical)</span>
                 </span>
               )}
             </div>
@@ -167,29 +169,72 @@ export function ItemCard({
         {/* Price Lists */}
         {item.price_lists.length > 0 ? (
           <div>
-            <h4 className="font-semibold mb-3">Current Prices</h4>
+            <h4 className="font-semibold mb-3 flex items-center gap-2">
+              Current Prices
+              <Badge variant="outline" className="text-xs">
+                {item.price_lists.length} {item.price_lists.length === 1 ? 'store' : 'stores'}
+              </Badge>
+            </h4>
             <div className="grid gap-2">
-              {item.price_lists.map((price) => (
-                <div key={price.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono text-sm bg-muted px-2 py-1 rounded">{price.barcode}</span>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{price.stores.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {price.units.unit} - {price.units.description}
-                      </span>
+              {item.price_lists.map((price) => {
+                const currencyId = price.currency_id || price.currencies?.id;
+                const hasValidCurrency = currencyId && price.currencies;
+                
+                return (
+                  <div key={price.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <span className="font-mono text-sm bg-muted px-2 py-1 rounded">{price.barcode}</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{price.stores.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          per {price.units.unit}
+                          {price.units.description !== price.units.unit && (
+                            <span className="ml-1">({price.units.description})</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-lg flex items-center gap-2">
+                        {hasValidCurrency ? (
+                          <MoneyDisplay 
+                            amount={price.retail_price} 
+                            currencyId={currencyId}
+                          />
+                        ) : (
+                          <span className="flex items-center gap-1" title="Currency not configured">
+                            {formatCurrency(price.retail_price, price.currency || 'USD')}
+                            <AlertCircle className="size-3 text-amber-500" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Info className="size-3" />
+                        <span>Base price (before tax)</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Updated: {formatDate(price.updated_at || price.created_at || '')}
+                      </div>
+                      {price.price_effective_date && (
+                        <div className="text-xs text-muted-foreground">
+                          Effective: {new Date(price.price_effective_date).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-lg">
-                      {formatCurrency(price.retail_price)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Updated: {formatDate(price.updated_at || price.created_at || '')}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+            
+            {/* Price Summary */}
+            <div className="mt-3 p-2 bg-muted/30 rounded text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Info className="size-3" />
+                <span>
+                  Prices shown are base amounts before tax. Final prices may include store-specific taxes.
+                  Click "Manage Prices" to configure taxes and view final pricing.
+                </span>
+              </div>
             </div>
           </div>
         ) : (
