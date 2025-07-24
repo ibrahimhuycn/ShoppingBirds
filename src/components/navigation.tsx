@@ -98,14 +98,8 @@ export function Navigation() {
             {/* Desktop User Menu */}
             <div className="hidden sm:flex sm:items-center sm:space-x-4">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {user ? getUserInitials(user.fullName) : 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
+                <DropdownMenuTrigger className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors">
+                  {user ? getUserInitials(user.fullName) : 'U'}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end">
                   <div className="flex flex-col space-y-1 p-2">
