@@ -1,6 +1,8 @@
 import { Inter } from "next/font/google"
 import { Navigation } from "@/components/navigation"
 import { TranslationProvider } from "@/contexts/translation-context"
+import { AuthProvider } from "@/contexts/auth-context"
+import { ClientAuthWrapper } from "@/components/auth/ClientAuthWrapper"
 import { Toaster } from "sonner"
 import "./globals.css"
 
@@ -19,18 +21,22 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={inter.className}>
       <body className="min-h-screen bg-background">
-        <TranslationProvider>
-          <Navigation />
-          <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-            {children}
-          </main>
-          <Toaster 
-            position="top-right" 
-            richColors 
-            closeButton 
-            duration={4000}
-          />
-        </TranslationProvider>
+        <AuthProvider>
+          <TranslationProvider>
+            <ClientAuthWrapper>
+              <Navigation />
+              <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                {children}
+              </main>
+            </ClientAuthWrapper>
+            <Toaster 
+              position="top-right" 
+              richColors 
+              closeButton 
+              duration={4000}
+            />
+          </TranslationProvider>
+        </AuthProvider>
       </body>
     </html>
   )

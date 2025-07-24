@@ -25,7 +25,6 @@ interface ItemFormData {
   dimension: string
   weight: string
   category: string
-  currency: string
   lowest_recorded_price: string
   highest_recorded_price: string
   images: string[]
@@ -59,7 +58,6 @@ export function EnhancedItemForm({
     dimension: '',
     weight: '',
     category: '',
-    currency: 'USD',
     lowest_recorded_price: '',
     highest_recorded_price: '',
     images: []
@@ -82,7 +80,6 @@ export function EnhancedItemForm({
         dimension: item.dimension || '',
         weight: item.weight || '',
         category: item.category || '',
-        currency: item.currency || 'USD',
         lowest_recorded_price: item.lowest_recorded_price?.toString() || '',
         highest_recorded_price: item.highest_recorded_price?.toString() || '',
         images: item.images || []
@@ -130,7 +127,6 @@ export function EnhancedItemForm({
       dimension: formData.dimension.trim() || null,
       weight: formData.weight.trim() || null,
       category: formData.category.trim() || null,
-      currency: formData.currency || 'USD',
       lowest_recorded_price: formData.lowest_recorded_price ? parseFloat(formData.lowest_recorded_price) : null,
       highest_recorded_price: formData.highest_recorded_price ? parseFloat(formData.highest_recorded_price) : null,
       images: formData.images.length > 0 ? formData.images : null
@@ -303,17 +299,7 @@ export function EnhancedItemForm({
           <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
             Price Information
           </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="currency">Currency</Label>
-              <Input
-                id="currency"
-                value={formData.currency}
-                onChange={(e) => handleInputChange('currency', e.target.value)}
-                placeholder="USD"
-                maxLength={3}
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="lowest_recorded_price">Lowest Recorded Price</Label>
               <Input

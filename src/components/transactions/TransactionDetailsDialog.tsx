@@ -4,10 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { TaxBreakdown } from "@/components/tax";
-import { MoneyDisplay } from "@/components/currency";
+import { formatCurrency } from "@/lib/utils";
 import { Receipt, Calendar, MapPin, User, Printer, Download, Copy, RefreshCw } from "lucide-react";
 import { useI18n } from "@/contexts/translation-context";
-import { useTransactionCurrency } from "@/hooks/currency";
 import { TransactionUtils } from "@/lib/transaction-utils";
 import type { Transaction } from "@/types/transactions";
 
@@ -23,11 +22,6 @@ export function TransactionDetailsDialog({
   onClose 
 }: TransactionDetailsDialogProps): JSX.Element {
   const { t } = useI18n();
-  const { currencyId: fallbackCurrencyId, currency: fallbackCurrency } = useTransactionCurrency();
-  
-  // Use transaction's actual currency if available, otherwise fallback to global currency
-  const currencyId = transaction?.currency?.id || fallbackCurrencyId;
-  const currency = transaction?.currency || fallbackCurrency;
 
   if (!transaction) {
     return <></>;
@@ -55,9 +49,7 @@ export function TransactionDetailsDialog({
 
   const handlePrintReceipt = (): void => {
     try {
-      const currencySymbol = currency?.symbol || '$';
-      const currencyCode = currency?.code || 'USD';
-      const receiptText = TransactionUtils.generateReceiptText(transaction, currencyCode, currencySymbol);
+      const receiptText = TransactionUtils.generateReceiptText(transaction, 'MVR', 'Rf.');
       
       // Open print dialog with receipt content
       const printWindow = window.open('', '_blank', 'width=300,height=600');
@@ -84,8 +76,7 @@ export function TransactionDetailsDialog({
 
   const handleExportTransaction = (): void => {
     try {
-      const currencyCode = currency?.code || 'USD';
-      const csvData = TransactionUtils.exportTransactionsToCSV([transaction], currencyCode);
+      const csvData = TransactionUtils.exportTransactionsToCSV([transaction], 'MVR');
       const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       
@@ -203,7 +194,7 @@ export function TransactionDetailsDialog({
                       <div>
                         <span className="text-muted-foreground">{t('transactions.basePrice')}:</span>
                         <div className="font-medium">
-                          <MoneyDisplay amount={item.basePrice} currencyId={currencyId} />
+                          {formatCurrency(item.basePrice)}
                         </div>
                       </div>
                       
@@ -211,7 +202,7 @@ export function TransactionDetailsDialog({
                         <div>
                           <span className="text-muted-foreground">{t('transactions.taxAmount')}:</span>
                           <div className="font-medium">
-                            <MoneyDisplay amount={item.taxAmount} currencyId={currencyId} />
+                            {formatCurrency(item.taxAmount)}
                           </div>
                         </div>
                       )}
@@ -219,14 +210,14 @@ export function TransactionDetailsDialog({
                       <div>
                         <span className="text-muted-foreground">{t('transactions.finalPrice')}:</span>
                         <div className="font-medium">
-                          <MoneyDisplay amount={item.totalPrice} currencyId={currencyId} />
+                          {formatCurrency(item.totalPrice)}
                         </div>
                       </div>
                       
                       <div>
                         <span className="text-muted-foreground">{t('transactions.lineTotal')}:</span>
                         <div className="font-medium text-primary">
-                          <MoneyDisplay amount={item.totalPrice * item.quantity} currencyId={currencyId} />
+                          {formatCurrency(item.totalPrice * item.quantity)}
                         </div>
                       </div>
                     </div>
@@ -240,7 +231,7 @@ export function TransactionDetailsDialog({
                             <div key={taxIndex} className="flex justify-between p-2 bg-muted/50 rounded">
                               <span>{tax.taxName} ({tax.percentage}%)</span>
                               <span>
-                                <MoneyDisplay amount={tax.amount * item.quantity} currencyId={currencyId} />
+                                {formatCurrency(tax.amount * item.quantity)}
                               </span>
                             </div>
                           ))}
@@ -262,13 +253,13 @@ export function TransactionDetailsDialog({
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span>{t('transactions.subtotal')}:</span>
-                  <MoneyDisplay amount={transaction.subtotal} currencyId={currencyId} />
+                  {formatCurrency(transaction.subtotal)}
                 </div>
                 
                 {transaction.totalTax > 0 && (
                   <div className="flex justify-between">
                     <span>{t('transactions.tax')}:</span>
-                    <MoneyDisplay amount={transaction.totalTax} currencyId={currencyId} />
+                    {formatCurrency(transaction.totalTax)}
                   </div>
                 )}
                 
@@ -277,7 +268,7 @@ export function TransactionDetailsDialog({
                     <span>{t('transactions.adjustment')}:</span>
                     <span className={transaction.adjustAmount > 0 ? 'text-green-600' : 'text-red-600'}>
                       {transaction.adjustAmount > 0 ? '+' : ''}
-                      <MoneyDisplay amount={transaction.adjustAmount} currencyId={currencyId} />
+                      {formatCurrency(transaction.adjustAmount)}
                     </span>
                   </div>
                 )}
@@ -287,7 +278,7 @@ export function TransactionDetailsDialog({
                 <div className="flex justify-between text-lg font-semibold">
                   <span>{t('transactions.total')}:</span>
                   <span className="text-primary">
-                    <MoneyDisplay amount={transaction.total} currencyId={currencyId} variant="large" />
+                    {formatCurrency(transaction.total)}
                   </span>
                 </div>
               </div>
@@ -309,7 +300,7 @@ export function TransactionDetailsDialog({
                     }))
                   )}
                   basePrice={transaction.subtotal}
-                  currency={currencyId.toString()}
+                  currency="MVR"
                   showDetailed={true}
                 />
               </CardContent>

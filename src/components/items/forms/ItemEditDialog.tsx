@@ -104,7 +104,6 @@ export function ItemEditDialog({
         category: item.category || '',
         dimension: item.dimension || '',
         weight: item.weight || '',
-        currency: item.currency || 'USD',
         lowest_recorded_price: item.lowest_recorded_price || null,
         highest_recorded_price: item.highest_recorded_price || null,
         images: item.images || [],
@@ -356,25 +355,7 @@ export function ItemEditDialog({
             {/* Pricing Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Pricing Information</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="currency">Currency</Label>
-                  <Select
-                    value={formData.currency || 'USD'}
-                    onValueChange={(value) => updateFormData('currency', value)}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD ($)</SelectItem>
-                      <SelectItem value="EUR">EUR (€)</SelectItem>
-                      <SelectItem value="GBP">GBP (£)</SelectItem>
-                      <SelectItem value="MVR">MVR (ރ)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="lowest_price">Lowest Recorded Price</Label>
                   <Input

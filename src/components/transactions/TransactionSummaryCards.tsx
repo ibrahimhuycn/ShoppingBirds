@@ -1,9 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MoneyDisplay } from "@/components/currency";
+import { formatCurrency } from "@/lib/utils";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, Receipt, Users } from "lucide-react";
 import { useI18n } from "@/contexts/translation-context";
-import { useTransactionCurrency } from "@/hooks/currency";
 import { TransactionUtils } from "@/lib/transaction-utils";
 import type { Transaction } from "@/types/transactions";
 
@@ -22,7 +21,6 @@ export function TransactionSummaryCards({
   dateRange 
 }: TransactionSummaryCardsProps): JSX.Element {
   const { t } = useI18n();
-  const { currencyId } = useTransactionCurrency();
 
   if (isLoading) {
     return (
@@ -50,7 +48,7 @@ export function TransactionSummaryCards({
   const summaryCards = [
     {
       title: t('transactions.total'),
-      value: <MoneyDisplay amount={stats.totalRevenue} currencyId={currencyId} variant="large" />,
+      value: formatCurrency(stats.totalRevenue),
       description: `${stats.totalTransactions} ${t('transactions.title').toLowerCase()}`,
       icon: DollarSign,
       trend: null, // Could calculate trend if we had historical data
@@ -66,7 +64,7 @@ export function TransactionSummaryCards({
     },
     {
       title: "Average Transaction",
-      value: <MoneyDisplay amount={stats.averageTransactionValue} currencyId={currencyId} />,
+      value: formatCurrency(stats.averageTransactionValue),
       description: "Per transaction",
       icon: Receipt,
       trend: null,
@@ -175,7 +173,7 @@ export function TransactionSummaryCards({
                   </div>
                   <div className="text-right">
                     <div className="font-medium">
-                      <MoneyDisplay amount={store.totalRevenue} currencyId={currencyId} />
+                      {formatCurrency(store.totalRevenue)}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {store.transactionCount} transactions

@@ -184,8 +184,6 @@ function transformPriceWithTaxes(dbRow: any): PriceWithTaxes {
     storeId: dbRow.store_id,
     barcode: dbRow.barcode,
     basePrice: parseFloat(dbRow.base_price || '0'),
-    currency: dbRow.currency,
-    currencyId: dbRow.currency_id,
     unitId: dbRow.unit_id,
     priceActive: dbRow.price_active,
     priceEffectiveDate: dbRow.price_effective_date,

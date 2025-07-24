@@ -39,8 +39,7 @@ export function useItems(): UseItemsReturn {
           price_lists (
             *,
             stores (name),
-            units (unit, description),
-            currencies (id, code, symbol, name)
+            units (unit, description)
           ),
           item_tags (
             tags (

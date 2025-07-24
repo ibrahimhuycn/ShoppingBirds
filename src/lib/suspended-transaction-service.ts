@@ -7,9 +7,7 @@ import type {
   Transaction,
   InvoiceWithDetails
 } from "@/types/transactions";
-import type { Currency } from "@/types/currency";
 import type { TaxBreakdownItem } from "@/types/tax";
-import { getCurrencyById } from "@/lib/currency";
 
 export class SuspendedTransactionService {
   /**
@@ -217,17 +215,12 @@ export class SuspendedTransactionService {
       // Get price list information for this item
       const { data: priceListData } = await supabase
         .from('price_lists')
-        .select('barcode, currency_id, unit_id, units!inner(unit)')
+        .select('barcode, unit_id, units!inner(unit)')
         .eq('item_id', detail.item_id)
         .eq('store_id', invoice.store_id)
         .eq('is_active', true)
         .single();
 
-      // Get currency information
-      let currency: Currency | undefined;
-      if (priceListData?.currency_id) {
-        currency = (await getCurrencyById(priceListData.currency_id)) || undefined;
-      }
 
       // Transform tax details to tax breakdown
       const taxBreakdown: TaxBreakdownItem[] = detail.invoice_detail_taxes?.map(tax => ({
@@ -248,8 +241,6 @@ export class SuspendedTransactionService {
         finalPrice: detail.price, // Final price per unit
         quantity: detail.quantity,
         unit: priceListData?.units?.unit || 'each',
-        currencyId: priceListData?.currency_id || 1,
-        currency,
         taxBreakdown,
         hasCustomTaxes: taxBreakdown.length > 0
       };

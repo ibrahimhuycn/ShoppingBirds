@@ -12,6 +12,9 @@ import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner"
 import type { Database } from "@/types/database"
 
+// Since we removed multicurrency support, we'll hardcode MVR
+const SUPPORTED_CURRENCIES = [{ code: 'MVR', symbol: 'Rf.', name: 'Maldivian Rufiyaa' }]
+
 type Store = Database['public']['Tables']['stores']['Row']
 type Unit = Database['public']['Tables']['units']['Row']
 type PriceListRow = Database['public']['Tables']['price_lists']['Row']
@@ -28,15 +31,6 @@ interface PriceManagerProps {
   onPricesUpdated: () => void
 }
 
-const SUPPORTED_CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'MVR', symbol: 'Rf', name: 'Maldivian Rufiyaa' },
-  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'LKR', symbol: 'Rs', name: 'Sri Lankan Rupee' }
-]
 
 export function PriceManager({ itemId, itemDescription, onPricesUpdated }: PriceManagerProps) {
   const [prices, setPrices] = useState<PriceListWithDetails[]>([])
@@ -52,14 +46,12 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
     barcode: '',
     store_id: '',
     retail_price: '',
-    currency: 'USD',
     unit_id: '',
     change_reason: ''
   })
 
   const [editingPrice, setEditingPrice] = useState({
     retail_price: '',
-    currency: 'USD',
     change_reason: ''
   })
 
@@ -162,7 +154,7 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
           barcode: newPrice.barcode,
           store_id: parseInt(newPrice.store_id),
           retail_price: parseFloat(newPrice.retail_price),
-          currency: newPrice.currency,
+          currency_id: 1, // Hardcoded MVR currency ID
           unit_id: parseInt(newPrice.unit_id),
           is_active: true
         })
@@ -191,7 +183,6 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
         barcode: '',
         store_id: '',
         retail_price: '',
-        currency: 'USD',
         unit_id: '',
         change_reason: ''
       })
@@ -220,7 +211,7 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
         .from('price_lists')
         .update({
           retail_price: parseFloat(editingPrice.retail_price),
-          currency: editingPrice.currency,
+          currency_id: 1, // Hardcoded MVR currency ID
           updated_at: new Date().toISOString()
         })
         .eq('id', priceId)
@@ -244,7 +235,7 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
 
       setPrices(prices.map(p => p.id === priceId ? data as PriceListWithDetails : p))
       setEditingPriceId(null)
-      setEditingPrice({ retail_price: '', currency: 'USD', change_reason: '' })
+      setEditingPrice({ retail_price: '', change_reason: '' })
       onPricesUpdated()
       await loadPriceHistory()
       
@@ -288,19 +279,17 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
     setEditingPriceId(price.id)
     setEditingPrice({
       retail_price: price.retail_price.toString(),
-      currency: price.currency || 'USD',
       change_reason: ''
     })
   }
 
   const cancelEditing = () => {
     setEditingPriceId(null)
-    setEditingPrice({ retail_price: '', currency: 'USD', change_reason: '' })
+    setEditingPrice({ retail_price: '', change_reason: '' })
   }
 
-  const getCurrencySymbol = (currencyCode: string) => {
-    const currency = SUPPORTED_CURRENCIES.find(c => c.code === currencyCode)
-    return currency?.symbol || currencyCode
+  const getCurrencySymbol = () => {
+    return 'Rf.' // Always return MVR symbol
   }
 
   const getChangeTypeColor = (changeType: string) => {
@@ -398,22 +387,10 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="new-currency">Currency *</Label>
-                  <Select
-                    value={newPrice.currency}
-                    onValueChange={(value) => setNewPrice({ ...newPrice, currency: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SUPPORTED_CURRENCIES.map((currency) => (
-                        <SelectItem key={currency.code} value={currency.code}>
-                          {currency.symbol} {currency.code} - {currency.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Currency</Label>
+                  <div className="flex items-center h-10 px-3 py-2 border border-input bg-background text-sm text-muted-foreground rounded-md">
+                    Rf. MVR - Maldivian Rufiyaa
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="new-price">Price *</Label>
@@ -452,7 +429,6 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
                       barcode: '',
                       store_id: '',
                       retail_price: '',
-                      currency: 'USD',
                       unit_id: '',
                       change_reason: ''
                     })
@@ -486,21 +462,9 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
                       
                       {editingPriceId === price.id ? (
                         <div className="flex items-center gap-2 flex-1">
-                          <Select
-                            value={editingPrice.currency}
-                            onValueChange={(value) => setEditingPrice({ ...editingPrice, currency: value })}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SUPPORTED_CURRENCIES.map((currency) => (
-                                <SelectItem key={currency.code} value={currency.code}>
-                                  {currency.symbol} {currency.code}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center h-10 px-3 py-2 border border-input bg-background text-sm text-muted-foreground rounded-md w-32">
+                            Rf. MVR
+                          </div>
                           <Input
                             type="number"
                             step="0.01"
@@ -519,10 +483,10 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
                       ) : (
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-sm">
-                            {getCurrencySymbol(price.currency || 'USD')} {price.currency || 'USD'}
+                            {getCurrencySymbol()} MVR
                           </Badge>
                           <div className="text-lg font-semibold">
-                            {formatCurrency(price.retail_price, price.currency || 'USD')}
+                            {formatCurrency(price.retail_price)}
                           </div>
                         </div>
                       )}
@@ -608,14 +572,14 @@ export function PriceManager({ itemId, itemDescription, onPricesUpdated }: Price
                         {change.old_price && (
                           <>
                             <span className="text-muted-foreground">
-                              {getCurrencySymbol(change.old_currency || 'USD')} {change.old_price}
+                              {getCurrencySymbol()} {change.old_price}
                             </span>
                             <span>→</span>
                           </>
                         )}
                         {change.new_price && (
                           <span className="font-medium">
-                            {getCurrencySymbol(change.new_currency || 'USD')} {change.new_price}
+                            {getCurrencySymbol()} {change.new_price}
                           </span>
                         )}
                       </div>

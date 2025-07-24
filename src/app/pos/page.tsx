@@ -1,7 +1,5 @@
 "use client"
 
-import { CurrencySelector, MoneyDisplay } from "@/components/currency";
-import { getBaseCurrency, getCurrencyById } from "@/lib/currency";
 import { SettingsService } from "@/lib/settings";
 import { getPriceWithTaxes } from "@/lib/tax-service";
 import { TaxBreakdown } from "@/components/tax";
@@ -19,7 +17,6 @@ import { toast } from "sonner"
 import { SuspendedTransactionService } from "@/lib/suspended-transaction-service"
 import { SuspendTransactionDialog, SuspendedTransactionsDialog } from "@/components/transactions"
 import type { Database, PriceWithTaxes } from "@/types/database";
-import type { Currency } from "@/types/currency";
 import type { TaxBreakdownItem } from "@/types/tax";
 import type { SuspendTransactionRequest } from "@/types/transactions";
 
@@ -39,8 +36,6 @@ interface CartItem {
   finalPrice: number;
   quantity: number;
   unit: string;
-  currencyId: number;
-  currency?: Currency;
   taxBreakdown: TaxBreakdownItem[];
   hasCustomTaxes: boolean;
 }
@@ -55,8 +50,6 @@ export default function POSPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [selectedStore, setSelectedStore] = useState<string>("")
-  const [selectedCurrencyId, setSelectedCurrencyId] = useState<number | undefined>();
-  const [baseCurrency, setBaseCurrency] = useState<Currency | null>(null);
   const [barcode, setBarcode] = useState<string>("")
   const [cart, setCart] = useState<CartItem[]>([])
   const [adjustAmount, setAdjustAmount] = useState<number>(0)
@@ -67,31 +60,8 @@ export default function POSPage() {
 
   useEffect(() => {
     loadInitialData();
-    loadBaseCurrency();
   }, []);
 
-  const loadBaseCurrency = async (): Promise<void> => {
-    try {
-      // First try to get default currency from settings
-      const defaultCurrencyId = SettingsService.getDefaultCurrencyId();
-      
-      if (defaultCurrencyId) {
-        const defaultCurrency = await getCurrencyById(defaultCurrencyId);
-        if (defaultCurrency) {
-          setBaseCurrency(defaultCurrency);
-          setSelectedCurrencyId(defaultCurrency.id);
-          return;
-        }
-      }
-      
-      // Fallback to base currency if no default set or default not found
-      const currency = await getBaseCurrency();
-      setBaseCurrency(currency);
-      setSelectedCurrencyId(currency.id);
-    } catch (error) {
-      console.error("Error loading currency:", error);
-    }
-  }
 
   const suspendTransaction = async (sessionName: string, notes?: string): Promise<void> => {
     if (!selectedStore || cart.length === 0) return;
@@ -111,7 +81,6 @@ export default function POSPage() {
           finalPrice: item.finalPrice,
           quantity: item.quantity,
           unit: item.unit,
-          currencyId: item.currencyId,
           taxBreakdown: item.taxBreakdown,
           hasCustomTaxes: item.hasCustomTaxes
         })),
@@ -161,8 +130,6 @@ export default function POSPage() {
         finalPrice: item.finalPrice,
         quantity: item.quantity,
         unit: item.unit,
-        currencyId: item.currencyId,
-        currency: item.currency,
         taxBreakdown: item.taxBreakdown,
         hasCustomTaxes: item.hasCustomTaxes
       }));
@@ -214,7 +181,7 @@ export default function POSPage() {
   }
 
   const searchItemByBarcode = async (barcode: string): Promise<void> => {
-    if (!barcode.trim() || !selectedStore || !selectedCurrencyId) return
+    if (!barcode.trim() || !selectedStore) return
 
     setIsLoading(true)
     try {
@@ -283,8 +250,6 @@ export default function POSPage() {
           finalPrice: priceWithTaxes.priceWithTaxes,
           quantity: 1,
           unit: priceListData.units.unit,
-          currencyId: selectedCurrencyId,
-          currency: baseCurrency || undefined,
           taxBreakdown: taxBreakdown,
           hasCustomTaxes: !priceWithTaxes.usesDefaultNoTax
         }
@@ -292,7 +257,7 @@ export default function POSPage() {
         
         const taxInfo = priceWithTaxes.usesDefaultNoTax 
           ? "(No tax)"
-          : `(+${formatCurrency(priceWithTaxes.totalTaxAmount, baseCurrency?.code || 'USD')} tax)`;
+          : `(+${formatCurrency(priceWithTaxes.totalTaxAmount)} tax)`;
         
         toast.success("Item Added", {
           description: `${newItem.description} added to cart ${taxInfo}`
@@ -499,15 +464,6 @@ export default function POSPage() {
                   </Select>
                 </div>
                 
-                <div>
-                  <label className="text-sm font-medium">Preferred Currency</label>
-                  <CurrencySelector
-                    value={selectedCurrencyId}
-                    onValueChange={setSelectedCurrencyId}
-                    placeholder="Select currency"
-                    className="w-full"
-                  />
-                </div>
               </div>
 
               <div>
@@ -565,9 +521,6 @@ export default function POSPage() {
                     </div>
                   )}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Currency: {baseCurrency?.symbol} {baseCurrency?.code}
-                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -602,7 +555,7 @@ export default function POSPage() {
                           <div>
                             <span className="text-muted-foreground text-xs">Base: </span>
                             <span className="font-medium">
-                              <MoneyDisplay amount={item.basePrice} currencyId={item.currencyId} />
+                              {formatCurrency(item.basePrice)}
                             </span>
                           </div>
                           
@@ -613,7 +566,7 @@ export default function POSPage() {
                                 Tax: 
                               </span>
                               <span className="font-medium text-amber-600">
-                                +<MoneyDisplay amount={item.taxAmount} currencyId={item.currencyId} />
+                                +{formatCurrency(item.taxAmount)}
                               </span>
                             </div>
                           )}
@@ -621,7 +574,7 @@ export default function POSPage() {
                           <div>
                             <span className="text-muted-foreground text-xs">Final: </span>
                             <span className="font-semibold text-green-600">
-                              <MoneyDisplay amount={item.finalPrice} currencyId={item.currencyId} />
+                              {formatCurrency(item.finalPrice)}
                             </span>
                           </div>
                           
@@ -645,7 +598,7 @@ export default function POSPage() {
                             {item.taxBreakdown.map((tax, index) => (
                               <span key={tax.taxId}>
                                 {index > 0 && ', '}
-                                {tax.taxName} ({tax.percentage}%): <MoneyDisplay amount={tax.amount} currencyId={item.currencyId} />
+                                {tax.taxName} ({tax.percentage}%): {formatCurrency(tax.amount)}
                               </span>
                             ))}
                           </div>
@@ -655,11 +608,11 @@ export default function POSPage() {
                       {/* Compact Line Total */}
                       <div className="ml-3 text-right">
                         <p className="font-bold">
-                          <MoneyDisplay amount={item.finalPrice * item.quantity} currencyId={item.currencyId} />
+                          {formatCurrency(item.finalPrice * item.quantity)}
                         </p>
                         {item.hasCustomTaxes && (
                           <p className="text-xs text-amber-600">
-                            (+<MoneyDisplay amount={item.taxAmount * item.quantity} currencyId={item.currencyId} /> tax)
+                            (+{formatCurrency(item.taxAmount * item.quantity)} tax)
                           </p>
                         )}
                       </div>
@@ -678,32 +631,19 @@ export default function POSPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
                 <span>{t("pos.subtotal")} (Base)</span>
-                <MoneyDisplay 
-                  amount={calculateSubtotal()} 
-                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
-                />
+                {formatCurrency(calculateSubtotal())}
               </div>
               <div className="flex justify-between text-sm">
                 <span>Total Tax</span>
-                <MoneyDisplay 
-                  amount={calculateTotalTax()} 
-                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
-                />
+                {formatCurrency(calculateTotalTax())}
               </div>
               <div className="flex justify-between text-sm">
                 <span>{t("pos.adjustAmount")}</span>
-                <MoneyDisplay 
-                  amount={adjustAmount} 
-                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
-                />
+                {formatCurrency(adjustAmount)}
               </div>
               <div className="flex justify-between text-base font-semibold border-t pt-2">
                 <span>{t("pos.finalTotal")}</span>
-                <MoneyDisplay 
-                  amount={calculateTotal()} 
-                  currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)}
-                  variant="large" 
-                />
+                {formatCurrency(calculateTotal())}
               </div>
               
               {/* Compact Tax Summary */}
@@ -712,10 +652,7 @@ export default function POSPage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">Tax Summary</span>
                     <span className="text-sm font-semibold text-amber-600">
-                      <MoneyDisplay 
-                        amount={calculateTotalTax()} 
-                        currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
-                      />
+                      {formatCurrency(calculateTotalTax())}
                     </span>
                   </div>
                   <div className="space-y-1">
@@ -726,10 +663,7 @@ export default function POSPage() {
                           {item.taxBreakdown.map((tax, index) => (
                             <span key={tax.taxId}>
                               {index > 0 && ' + '}
-                              <MoneyDisplay 
-                                amount={tax.amount * item.quantity} 
-                                currencyId={selectedCurrencyId || (baseCurrency?.id ?? 1)} 
-                              />
+                              {formatCurrency(tax.amount * item.quantity)}
                             </span>
                           ))}
                         </div>

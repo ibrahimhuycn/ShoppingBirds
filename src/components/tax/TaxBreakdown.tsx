@@ -8,7 +8,7 @@ import type { TaxBreakdownProps } from '@/types/tax';
 export function TaxBreakdown({
   taxBreakdown,
   basePrice,
-  currency = 'USD',
+  currency = 'MVR',
   showDetailed = true
 }: TaxBreakdownProps) {
   const totalTaxAmount = taxBreakdown.reduce((sum, tax) => sum + tax.amount, 0);
@@ -56,7 +56,7 @@ export function TaxBreakdown({
         {/* Base Price */}
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium">Base Price:</span>
-          <span className="font-mono">{formatCurrency(basePrice, currency)}</span>
+          <span className="font-mono">{formatCurrency(basePrice)}</span>
         </div>
 
         <Separator />
@@ -78,11 +78,11 @@ export function TaxBreakdown({
                     </Badge>
                   </div>
                   <span className="font-mono text-sm">
-                    {formatCurrency(tax.amount, currency)}
+                    {formatCurrency(tax.amount)}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {formatCurrency(basePrice, currency)} × {tax.percentage}% = {formatCurrency(tax.amount, currency)}
+                  {formatCurrency(basePrice)} × {tax.percentage}% = {formatCurrency(tax.amount)}
                 </div>
               </div>
             ))}
@@ -113,7 +113,7 @@ export function TaxBreakdown({
             Total Tax ({totalTaxPercentage}%):
           </span>
           <span className="font-mono font-medium">
-            {formatCurrency(totalTaxAmount, currency)}
+            {formatCurrency(totalTaxAmount)}
           </span>
         </div>
 
@@ -126,7 +126,7 @@ export function TaxBreakdown({
             Final Price:
           </span>
           <span className="font-mono font-bold text-lg">
-            {formatCurrency(finalPrice, currency)}
+            {formatCurrency(finalPrice)}
           </span>
         </div>
 
@@ -150,7 +150,7 @@ export function TaxBreakdown({
 export function CompactTaxBreakdown({
   taxBreakdown,
   basePrice,
-  currency = 'USD'
+  currency = 'MVR'
 }: Omit<TaxBreakdownProps, 'showDetailed'>) {
   const totalTaxAmount = taxBreakdown.reduce((sum, tax) => sum + tax.amount, 0);
   const totalTaxPercentage = taxBreakdown.reduce((sum, tax) => sum + tax.percentage, 0);
@@ -160,7 +160,7 @@ export function CompactTaxBreakdown({
     return (
       <div className="flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">No tax</span>
-        <span className="font-mono">{formatCurrency(basePrice, currency)}</span>
+        <span className="font-mono">{formatCurrency(basePrice)}</span>
       </div>
     );
   }
@@ -169,7 +169,7 @@ export function CompactTaxBreakdown({
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">Base:</span>
-        <span className="font-mono">{formatCurrency(basePrice, currency)}</span>
+        <span className="font-mono">{formatCurrency(basePrice)}</span>
       </div>
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-1">
@@ -178,12 +178,12 @@ export function CompactTaxBreakdown({
             {totalTaxPercentage}%
           </Badge>
         </div>
-        <span className="font-mono">{formatCurrency(totalTaxAmount, currency)}</span>
+        <span className="font-mono">{formatCurrency(totalTaxAmount)}</span>
       </div>
       <Separator />
       <div className="flex items-center justify-between font-medium">
         <span>Total:</span>
-        <span className="font-mono">{formatCurrency(finalPrice, currency)}</span>
+        <span className="font-mono">{formatCurrency(finalPrice)}</span>
       </div>
     </div>
   );

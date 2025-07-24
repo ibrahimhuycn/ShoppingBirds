@@ -36,7 +36,6 @@ interface PriceList {
   store_id: number;
   retail_price: number;
   unit_id: number;
-  currency: string | null;
   price_effective_date: string | null;
   is_active: boolean | null;
   created_at: string | null;
@@ -50,7 +49,6 @@ interface PriceFormData {
   store_id: string;
   retail_price: string;
   unit_id: string;
-  currency: string;
   selectedTaxIds: number[];
 }
 
@@ -58,7 +56,6 @@ interface PriceTrend {
   store_name: string;
   price_date: string;
   price: number;
-  currency: string;
   change_type: string;
   price_change_percentage: number | null;
 }
@@ -91,7 +88,6 @@ export function EnhancedPriceManager({
     store_id: '',
     retail_price: '',
     unit_id: '',
-    currency: 'USD',
     selectedTaxIds: [],
   });
 
@@ -192,7 +188,6 @@ export function EnhancedPriceManager({
       store_id: '',
       retail_price: '',
       unit_id: '',
-      currency: 'USD',
       selectedTaxIds: [],
     });
     setEditingPrice(null);
@@ -226,7 +221,6 @@ export function EnhancedPriceManager({
         store_id: price.store_id.toString(),
         retail_price: price.retail_price.toString(),
         unit_id: price.unit_id.toString(),
-        currency: price.currency || 'USD',
         selectedTaxIds,
       });
       setEditingPrice(price);
@@ -274,7 +268,6 @@ export function EnhancedPriceManager({
         store_id: parseInt(formData.store_id),
         retail_price: parseFloat(formData.retail_price),
         unit_id: parseInt(formData.unit_id),
-        currency: formData.currency || 'USD',
       };
 
       let priceListId: number;
@@ -446,24 +439,6 @@ export function EnhancedPriceManager({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) => updateFormData('currency', value)}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="GBP">GBP (£)</SelectItem>
-                    <SelectItem value="MVR">MVR (ރ)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             <Separator />
@@ -532,7 +507,7 @@ export function EnhancedPriceManager({
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">
-                        {formatCurrency(trend.price, trend.currency)}
+                        {formatCurrency(trend.price)}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         {trend.price_change_percentage !== null && (
@@ -602,12 +577,11 @@ export function EnhancedPriceManager({
                         <CompactTaxBreakdown
                           taxBreakdown={pricesWithTax[price.id].appliedTaxes || []}
                           basePrice={price.retail_price}
-                          currency={price.currency || 'USD'}
                         />
                       ) : (
                         <>
                           <div className="font-semibold text-lg">
-                            {formatCurrency(price.retail_price, price.currency || 'USD')}
+                            {formatCurrency(price.retail_price)}
                           </div>
                           {showTaxes && (
                             <div className="text-xs text-muted-foreground">
