@@ -1,5 +1,4 @@
 import type { Database } from '../database';
-import type { Currency } from '../currency';
 import type { TaxBreakdownItem } from '../tax';
 
 // Database table types
@@ -50,7 +49,6 @@ export interface Transaction {
     username: string;
   };
   items: TransactionItem[];
-  currency?: Currency;
   // Calculated fields
   subtotal: number;
   totalTax: number;
@@ -137,7 +135,6 @@ export interface SuspendTransactionRequest {
     finalPrice: number;
     quantity: number;
     unit: string;
-    currencyId: number;
     taxBreakdown: TaxBreakdownItem[];
     hasCustomTaxes: boolean;
   }[];
@@ -178,8 +175,6 @@ export interface ResumeTransactionData {
     finalPrice: number;
     quantity: number;
     unit: string;
-    currencyId: number;
-    currency?: Currency;
     taxBreakdown: TaxBreakdownItem[];
     hasCustomTaxes: boolean;
   }[];

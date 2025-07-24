@@ -1,7 +1,5 @@
 "use client"
 
-import { CurrencySelector } from "@/components/currency"
-import { getActiveCurrencies, getBaseCurrency, type Currency } from "@/lib/currency"
 import { SettingsService, type AppSettings } from "@/lib/settings"
 import { useI18n } from "@/contexts/translation-context"
 import Link from "next/link"
@@ -13,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Settings, 
   Globe, 
-  Coins, 
   Printer, 
   Database, 
   User, 
@@ -37,28 +34,14 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(SettingsService.loadSettings());
   
   const [stores, setStores] = useState<Store[]>([]);
-  const [baseCurrency, setBaseCurrency] = useState<Currency | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [backupData, setBackupData] = useState<string>("")
 
-  const loadBaseCurrency = useCallback(async (): Promise<void> => {
-    try {
-      const currency = await getBaseCurrency();
-      setBaseCurrency(currency);
-      // Set default currency to base currency if not set
-      if (!settings.defaultCurrencyId) {
-        setSettings(prev => ({ ...prev, defaultCurrencyId: currency.id }));
-      }
-    } catch (error) {
-      console.error("Error loading base currency:", error);
-    }
-  }, [settings.defaultCurrencyId]);
 
   useEffect(() => {
     loadStores();
     loadSettings();
-    loadBaseCurrency();
-  }, [loadBaseCurrency]);
+  }, []);
 
   const loadStores = async (): Promise<void> => {
     try {
@@ -231,37 +214,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Currency Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Coins className="size-5" />
-              {t('settings.currencyManagement')}
-            </CardTitle>
-            <CardDescription>{t('settings.currencyDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p>{t('settings.currencyDescription')}</p>
-            </div>
-            
-            <div className="space-y-2">
-              <Link href="/settings/currencies">
-                <Button variant="outline" className="w-full">
-                  <Coins className="size-4 mr-2" />
-                  {t('settings.manageCurrencies')}
-                </Button>
-              </Link>
-              
-              <Link href="/settings/currency-test">
-                <Button variant="outline" className="w-full">
-                  <Settings className="size-4 mr-2" />
-                  {t('settings.testCurrencySystem')}
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Tax Management */}
         <Card>
@@ -309,15 +261,6 @@ export default function SettingsPage() {
             <CardDescription>{t('settings.generalDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">{t('settings.defaultCurrency')}</label>
-              <CurrencySelector
-                value={settings.defaultCurrencyId}
-                onValueChange={(currencyId) => setSettings({ ...settings, defaultCurrencyId: currencyId })}
-                placeholder={t('settings.selectDefaultCurrency')}
-                showFullName={true}
-              />
-            </div>
 
             <div>
               <label className="text-sm font-medium">{t('settings.defaultStore')}</label>

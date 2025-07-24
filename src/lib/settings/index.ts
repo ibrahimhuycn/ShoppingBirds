@@ -1,5 +1,4 @@
 interface AppSettings {
-  defaultCurrencyId: number | undefined;
   language: string;
   theme: string;
   autoSave: boolean;
@@ -10,7 +9,6 @@ interface AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  defaultCurrencyId: undefined,
   language: "en",
   theme: "system",
   autoSave: true,
@@ -59,22 +57,6 @@ export class SettingsService {
     }
   }
 
-  /**
-   * Get default currency ID from settings
-   */
-  static getDefaultCurrencyId(): number | undefined {
-    const settings = this.loadSettings();
-    return settings.defaultCurrencyId;
-  }
-
-  /**
-   * Set default currency ID in settings
-   */
-  static setDefaultCurrencyId(currencyId: number): void {
-    const settings = this.loadSettings();
-    settings.defaultCurrencyId = currencyId;
-    this.saveSettings(settings);
-  }
 
   /**
    * Get default store ID from settings

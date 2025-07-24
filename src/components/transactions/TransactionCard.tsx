@@ -1,10 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoneyDisplay } from "@/components/currency";
+import { formatCurrency } from "@/lib/utils";
 import { Eye, Calendar, MapPin, User, ShoppingBag, Receipt } from "lucide-react";
 import { useI18n } from "@/contexts/translation-context";
-import { useTransactionCurrency } from "@/hooks/currency";
 import type { Transaction } from "@/types/transactions";
 
 interface TransactionCardProps {
@@ -14,10 +13,6 @@ interface TransactionCardProps {
 
 export function TransactionCard({ transaction, onViewDetails }: TransactionCardProps): JSX.Element {
   const { t } = useI18n();
-  const { currencyId: fallbackCurrencyId } = useTransactionCurrency();
-  
-  // Use transaction's actual currency if available, otherwise fallback to global currency
-  const currencyId = transaction.currency?.id || fallbackCurrencyId;
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -56,12 +51,12 @@ export function TransactionCard({ transaction, onViewDetails }: TransactionCardP
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-primary">
-              <MoneyDisplay amount={transaction.total} currencyId={currencyId} variant="large" />
+              {formatCurrency(transaction.total)}
             </div>
             {transaction.adjustAmount !== 0 && (
               <div className="text-sm text-muted-foreground">
                 {transaction.adjustAmount > 0 ? '+' : ''}
-                <MoneyDisplay amount={transaction.adjustAmount} currencyId={currencyId} /> {t('transactions.adjustment')}
+                {formatCurrency(transaction.adjustAmount)} {t('transactions.adjustment')}
               </div>
             )}
           </div>
@@ -73,12 +68,12 @@ export function TransactionCard({ transaction, onViewDetails }: TransactionCardP
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('transactions.subtotal')}:</span>
-              <MoneyDisplay amount={transaction.subtotal} currencyId={currencyId} />
+              {formatCurrency(transaction.subtotal)}
             </div>
             {transaction.totalTax > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('transactions.tax')}:</span>
-                <MoneyDisplay amount={transaction.totalTax} currencyId={currencyId} />
+                {formatCurrency(transaction.totalTax)}
               </div>
             )}
           </div>
@@ -116,7 +111,7 @@ export function TransactionCard({ transaction, onViewDetails }: TransactionCardP
                     {item.quantity}× {item.description}
                   </span>
                   <span className="text-muted-foreground ml-2">
-                    <MoneyDisplay amount={item.totalPrice * item.quantity} currencyId={currencyId} />
+                    {formatCurrency(item.totalPrice * item.quantity)}
                   </span>
                 </div>
               ))}

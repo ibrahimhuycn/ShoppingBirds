@@ -7,7 +7,6 @@ import type {
   TransactionSummary,
   TransactionStatus
 } from "@/types/transactions";
-import type { Currency } from "@/types/currency";
 import type { TaxBreakdownItem } from "@/types/tax";
 
 export class TransactionService {
@@ -21,7 +20,6 @@ export class TransactionService {
   }> {
     const { sortBy, sortOrder, page, limit, filters } = options;
     
-    // Build query with relationships including currencies
     let query = supabase
       .from("invoices")
       .select(`
@@ -254,37 +252,6 @@ export class TransactionService {
       };
     }) || []);
     
-    // Get currency information from price_lists for the first item (transactions should have consistent currency)
-    let transactionCurrency: Currency | undefined;
-    if (items.length > 0) {
-      const { data: priceListData } = await supabase
-        .from('price_lists')
-        .select(`
-          currency_id,
-          currencies (id, code, name, symbol, factor, is_base_currency, decimal_places, is_active, update_source)
-        `)
-        .eq('item_id', items[0].itemId)
-        .eq('store_id', invoice.store_id)
-        .eq('is_active', true)
-        .single();
-        
-      if (priceListData?.currencies) {
-        const curr = priceListData.currencies;
-        transactionCurrency = {
-          id: curr.id,
-          code: curr.code,
-          name: curr.name,
-          symbol: curr.symbol,
-          factor: curr.factor,
-          isBaseCurrency: curr.is_base_currency,
-          decimalPlaces: curr.decimal_places,
-          isActive: curr.is_active,
-          updateSource: curr.update_source || 'manual',
-          createdAt: '', // Not needed for display
-          updatedAt: '' // Not needed for display
-        };
-      }
-    }
     
     const subtotal = items.reduce((sum, item) => sum + (item.basePrice * item.quantity), 0);
     const totalTax = items.reduce((sum, item) => sum + (item.taxAmount * item.quantity), 0);
@@ -312,7 +279,6 @@ export class TransactionService {
         username: invoice.users.username
       },
       items,
-      currency: transactionCurrency, // Include the actual currency
       subtotal,
       totalTax,
       itemCount

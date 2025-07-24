@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { SuspendedTransactionService } from "@/lib/suspended-transaction-service";
-import { MoneyDisplay } from "@/components/currency";
+import { formatCurrency } from "@/lib/utils";
 import { useI18n } from "@/contexts/translation-context";
 import { toast } from "sonner";
 import type { SuspendedTransaction } from "@/types/transactions";
@@ -182,7 +182,7 @@ export function SuspendedTransactionsDialog({
                       
                       <div className="flex items-center gap-2">
                         <DollarSign className="size-4 text-muted-foreground" />
-                        <MoneyDisplay amount={transaction.total} currencyId={1} />
+                        {formatCurrency(transaction.total)}
                       </div>
                     </div>
                     

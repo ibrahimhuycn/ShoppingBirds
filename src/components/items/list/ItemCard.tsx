@@ -2,7 +2,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Package, Edit, Trash2, DollarSign, Scan, AlertCircle, Info } from 'lucide-react';
-import { MoneyDisplay } from '@/components/currency';
 import { formatCurrency } from '@/lib/utils';
 import type { ItemCardProps } from '@/types/items';
 
@@ -153,12 +152,12 @@ export function ItemCard({
               {item.weight && (
                 <span>Weight: {item.weight}</span>
               )}
-              {item.currency && (item.lowest_recorded_price || item.highest_recorded_price) && (
+              {(item.lowest_recorded_price || item.highest_recorded_price) && (
                 <span>
                   Price Range: 
-                  {item.lowest_recorded_price && formatCurrency(item.lowest_recorded_price, item.currency)}
+                  {item.lowest_recorded_price && formatCurrency(item.lowest_recorded_price)}
                   {item.lowest_recorded_price && item.highest_recorded_price && ' - '}
-                  {item.highest_recorded_price && formatCurrency(item.highest_recorded_price, item.currency)}
+                  {item.highest_recorded_price && formatCurrency(item.highest_recorded_price)}
                   <span className="ml-1 text-xs opacity-75">(Historical)</span>
                 </span>
               )}
@@ -177,8 +176,6 @@ export function ItemCard({
             </h4>
             <div className="grid gap-2">
               {item.price_lists.map((price) => {
-                const currencyId = price.currency_id || price.currencies?.id;
-                const hasValidCurrency = currencyId && price.currencies;
                 
                 return (
                   <div key={price.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
@@ -196,17 +193,7 @@ export function ItemCard({
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-lg flex items-center gap-2">
-                        {hasValidCurrency ? (
-                          <MoneyDisplay 
-                            amount={price.retail_price} 
-                            currencyId={currencyId}
-                          />
-                        ) : (
-                          <span className="flex items-center gap-1" title="Currency not configured">
-                            {formatCurrency(price.retail_price, price.currency || 'USD')}
-                            <AlertCircle className="size-3 text-amber-500" />
-                          </span>
-                        )}
+                        {formatCurrency(price.retail_price)}
                       </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1">
                         <Info className="size-3" />

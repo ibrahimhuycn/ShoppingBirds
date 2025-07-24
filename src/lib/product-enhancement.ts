@@ -67,7 +67,6 @@ export class ProductEnhancementService {
       dimension: upcItem.dimension || null,
       weight: upcItem.weight || null,
       category: upcItem.category || null,
-      currency: upcItem.currency || 'USD',
       images: upcItem.images || null,
       lowest_recorded_price: upcItem.lowest_recorded_price || null,
       highest_recorded_price: upcItem.highest_recorded_price || null
@@ -143,7 +142,6 @@ export class ProductEnhancementService {
         dimension: enhancedData.item.dimension,
         weight: enhancedData.item.weight,
         category: enhancedData.item.category,
-        currency: enhancedData.item.currency,
         images: enhancedData.item.images,
         lowest_recorded_price: enhancedData.item.lowest_recorded_price,
         highest_recorded_price: enhancedData.item.highest_recorded_price,
