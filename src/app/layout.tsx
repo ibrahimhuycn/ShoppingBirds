@@ -1,4 +1,4 @@
-import { Ubuntu } from "next/font/google"
+import { Oxanium } from "next/font/google"
 import { Navigation } from "@/components/navigation"
 import { TranslationProvider } from "@/contexts/translation-context"
 import { AuthProvider } from "@/contexts/auth-context"
@@ -7,9 +7,9 @@ import { Toaster } from "sonner"
 import { DebugInitializer } from "@/components/debug/DebugInitializer"
 import "./globals.css"
 
-const ubuntu = Ubuntu({ 
+const oxanium = Oxanium({ 
   subsets: ["latin"],
-  weight: ["300", "400", "500", "700"]
+  weight: ["200", "300", "400", "500", "600", "700", "800"]
 })
 
 export const metadata = {
@@ -23,7 +23,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={ubuntu.className}>
+    <html lang="en" className={oxanium.className}>
       <body className="min-h-screen bg-background">
         <AuthProvider>
           <TranslationProvider>
