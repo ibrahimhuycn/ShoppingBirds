@@ -155,10 +155,10 @@ export class AuthService {
    */
   static async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      // Add timeout to session check with shorter timeout for faster recovery
+      // Add timeout to session check with reasonable timeout for network conditions
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Session check timeout')), 3000)
+        setTimeout(() => reject(new Error('Session check timeout')), 8000)
       );
       
       const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
@@ -201,7 +201,7 @@ export class AuthService {
 
       console.log('Fetching user data from database for:', session.user.email);
       
-      // Add timeout to database query with shorter timeout for faster recovery
+      // Add timeout to database query with reasonable timeout for network conditions
       const dbQueryPromise = supabase
         .from('users')
         .select('*')
@@ -209,7 +209,7 @@ export class AuthService {
         .single();
         
       const dbTimeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout')), 5000)
+        setTimeout(() => reject(new Error('Database query timeout')), 8000)
       );
       
       let { data: userData, error } = await Promise.race([dbQueryPromise, dbTimeoutPromise]);
@@ -235,7 +235,7 @@ export class AuthService {
           .single();
           
         const createTimeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('User creation timeout')), 5000)
+          setTimeout(() => reject(new Error('User creation timeout')), 8000)
         );
 
         const { data: newUser, error: createError } = await Promise.race([createPromise, createTimeoutPromise]);
