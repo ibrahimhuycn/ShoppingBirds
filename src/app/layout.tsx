@@ -4,6 +4,7 @@ import { TranslationProvider } from "@/contexts/translation-context"
 import { AuthProvider } from "@/contexts/auth-context"
 import { ClientAuthWrapper } from "@/components/auth/ClientAuthWrapper"
 import { Toaster } from "sonner"
+import { DebugInitializer } from "@/components/debug/DebugInitializer"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               closeButton 
               duration={4000}
             />
+            <DebugInitializer />
           </TranslationProvider>
         </AuthProvider>
       </body>
