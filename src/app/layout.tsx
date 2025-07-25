@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google"
+import { Ubuntu } from "next/font/google"
 import { Navigation } from "@/components/navigation"
 import { TranslationProvider } from "@/contexts/translation-context"
 import { AuthProvider } from "@/contexts/auth-context"
@@ -7,7 +7,10 @@ import { Toaster } from "sonner"
 import { DebugInitializer } from "@/components/debug/DebugInitializer"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"] })
+const ubuntu = Ubuntu({ 
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"]
+})
 
 export const metadata = {
   title: "ShoppingBird - Smart Shopping Assistant",
@@ -20,7 +23,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={inter.className}>
+    <html lang="en" className={ubuntu.className}>
       <body className="min-h-screen bg-background">
         <AuthProvider>
           <TranslationProvider>
