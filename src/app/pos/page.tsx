@@ -433,7 +433,7 @@ export default function POSPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
         {/* Left Column - Scanner and Controls */}
         <div className="space-y-6">
           <Card>
