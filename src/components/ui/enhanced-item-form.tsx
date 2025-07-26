@@ -198,14 +198,22 @@ export function EnhancedItemForm({
             </div>
           </div>
           <div>
-            <Label htmlFor="full_description">Full Description</Label>
+            <Label htmlFor="full_description" className="flex items-center justify-between">
+              Full Description
+              <span className="text-xs text-muted-foreground font-normal">
+                HTML formatting supported
+              </span>
+            </Label>
             <Textarea
               id="full_description"
               value={formData.full_description}
               onChange={(e) => handleInputChange('full_description', e.target.value)}
-              placeholder="Detailed product description"
-              rows={3}
+              placeholder="Detailed product description (HTML supported: <strong>bold</strong>, <em>italic</em>, <p>paragraphs</p>, etc.)"
+              rows={4}
             />
+            <p className="text-xs text-muted-foreground">
+              You can use HTML tags for formatting: &lt;strong&gt;, &lt;em&gt;, &lt;p&gt;, &lt;br&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, etc.
+            </p>
           </div>
         </div>
 

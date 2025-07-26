@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { Package, Edit, Trash2, DollarSign, Scan, AlertCircle, Info } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { ItemCardProps } from '@/types/items';
@@ -114,9 +115,11 @@ export function ItemCard({
           <div className="mb-4 p-3 bg-muted/30 rounded-lg">
             {item.full_description && (
               <div className="mb-2">
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {item.full_description}
-                </p>
+                <SafeHtml 
+                  content={item.full_description}
+                  className="text-sm text-muted-foreground"
+                  maxLines={2}
+                />
               </div>
             )}
             
