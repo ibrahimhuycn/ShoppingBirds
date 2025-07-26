@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SafeHtml } from '@/components/ui/safe-html';
-import { Package, Edit, Trash2, DollarSign, Scan, AlertCircle, Info } from 'lucide-react';
+import { Package, Edit, Trash2, DollarSign, Scan, AlertCircle, Info, Eye } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { ItemCardProps } from '@/types/items';
 
@@ -10,7 +10,8 @@ export function ItemCard({
   item, 
   onEdit, 
   onDelete, 
-  onManagePrices, 
+  onManagePrices,
+  onViewDetails, 
   isLoading 
 }: ItemCardProps) {
   const handleDelete = (): void => {
@@ -80,6 +81,15 @@ export function ItemCard({
           </div>
           
           <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onViewDetails(item)}
+              disabled={isLoading}
+            >
+              <Eye className="size-4 mr-1" />
+              View Details
+            </Button>
             <Button
               size="sm"
               variant="outline"

@@ -7,7 +7,8 @@ export function ItemList({
   items, 
   onItemEdit, 
   onItemDelete, 
-  onManagePrices, 
+  onManagePrices,
+  onViewDetails, 
   isLoading 
 }: ItemListProps) {
   if (items.length === 0) {
@@ -32,6 +33,7 @@ export function ItemList({
           onEdit={onItemEdit}
           onDelete={onItemDelete}
           onManagePrices={onManagePrices}
+          onViewDetails={onViewDetails}
           isLoading={isLoading}
         />
       ))}

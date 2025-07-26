@@ -6,6 +6,7 @@ import { SearchBar } from './search/SearchBar';
 import { Pagination } from './search/Pagination';
 import { ItemList } from './list/ItemList';
 import { EmptyState } from './list/EmptyState';
+import { ItemDetailsDialog } from './ItemDetailsDialog';
 import { 
   AddItemDialog,
   UPCLookupDialog,
@@ -16,7 +17,7 @@ import {
 } from './forms';
 import { productEnhancementService, type EnhancedProductData } from '@/lib/product-enhancement';
 import { toast } from 'sonner';
-import type { Item } from '@/types/items';
+import type { Item, ItemWithPrices } from '@/types/items';
 
 export function ItemsContainer() {
   // Dialog state management
@@ -31,6 +32,10 @@ export function ItemsContainer() {
   const [itemEditDialog, setItemEditDialog] = useState<{
     open: boolean;
     item: Item | null;
+  }>({ open: false, item: null });
+  const [itemDetailsDialog, setItemDetailsDialog] = useState<{
+    open: boolean;
+    item: ItemWithPrices | null;
   }>({ open: false, item: null });
 
   // Enhanced dialog state
@@ -98,6 +103,14 @@ export function ItemsContainer() {
 
   const handleCloseItemEditDialog = (): void => {
     setItemEditDialog({ open: false, item: null });
+  };
+
+  const handleViewDetails = (item: ItemWithPrices): void => {
+    setItemDetailsDialog({ open: true, item });
+  };
+
+  const handleCloseItemDetailsDialog = (): void => {
+    setItemDetailsDialog({ open: false, item: null });
   };
 
   const handleUPCProductFound = async (enhancedData: EnhancedProductData): Promise<void> => {
@@ -169,6 +182,7 @@ export function ItemsContainer() {
           onItemEdit={handleEditItem}
           onItemDelete={handleDeleteItem}
           onManagePrices={handleOpenPriceManagerDialog}
+          onViewDetails={handleViewDetails}
           isLoading={isLoading}
         />
       ) : (
@@ -233,6 +247,15 @@ export function ItemsContainer() {
           itemId={priceManagerDialog.itemId}
           itemDescription={getItemDescription(priceManagerDialog.itemId)}
           onPricesUpdated={handlePricesUpdated}
+        />
+      )}
+
+      {/* Item Details Dialog */}
+      {itemDetailsDialog.item && (
+        <ItemDetailsDialog
+          open={itemDetailsDialog.open}
+          onOpenChange={handleCloseItemDetailsDialog}
+          item={itemDetailsDialog.item}
         />
       )}
     </div>

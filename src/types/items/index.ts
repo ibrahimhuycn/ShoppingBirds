@@ -81,6 +81,7 @@ export interface ItemCardProps {
   onEdit: (item: Item) => void;
   onDelete: (itemId: number) => void;
   onManagePrices: (itemId: number) => void;
+  onViewDetails: (item: ItemWithPrices) => void;
   isLoading: boolean;
 }
 
@@ -89,6 +90,7 @@ export interface ItemListProps {
   onItemEdit: (item: Item) => void;
   onItemDelete: (itemId: number) => void;
   onManagePrices: (itemId: number) => void;
+  onViewDetails: (item: ItemWithPrices) => void;
   isLoading: boolean;
 }
 
