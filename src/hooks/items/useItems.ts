@@ -126,9 +126,28 @@ export function useItems(): UseItemsReturn {
 
     setIsLoading(true);
     try {
+      // Prepare update data, excluding read-only fields like id, created_at, updated_at
+      const updateData = {
+        description: item.description.trim(),
+        title: item.title || null,
+        brand: item.brand || null,
+        model: item.model || null,
+        ean: item.ean || null,
+        upc: item.upc || null,
+        gtin: item.gtin || null,
+        asin: item.asin || null,
+        full_description: item.full_description || null,
+        category: item.category || null,
+        dimension: item.dimension || null,
+        weight: item.weight || null,
+        lowest_recorded_price: item.lowest_recorded_price,
+        highest_recorded_price: item.highest_recorded_price,
+        images: item.images || null,
+      };
+
       const { data, error } = await supabase
         .from('items')
-        .update({ description: item.description.trim() })
+        .update(updateData)
         .eq('id', item.id)
         .select()
         .single();
