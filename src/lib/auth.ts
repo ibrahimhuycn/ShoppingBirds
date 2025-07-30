@@ -151,6 +151,28 @@ export class AuthService {
   }
 
   /**
+   * Get current user from cache without database calls (for token refresh)
+   */
+  static getCurrentUserFromCache(): AuthUser | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const authUser = JSON.parse(stored);
+        // Return cached data regardless of timestamp for token refresh
+        return authUser;
+      }
+    } catch (error) {
+      console.error('Error reading cached user:', error);
+    }
+
+    return null;
+  }
+
+  /**
    * Get current user from Supabase session with timeout and fallback mechanisms
    */
   static async getCurrentUser(): Promise<AuthUser | null> {
@@ -177,10 +199,10 @@ export class AuthService {
           const stored = localStorage.getItem(this.STORAGE_KEY);
           if (stored) {
             const authUser = JSON.parse(stored);
-            // Verify the auth ID matches and data is recent (within 1 hour)
+            // Verify the auth ID matches and data is recent (within 4 hours)
             const now = Date.now();
             const storedTime = authUser.lastFetched || 0;
-            const isRecent = now - storedTime < 60 * 60 * 1000; // 1 hour
+            const isRecent = now - storedTime < 4 * 60 * 60 * 1000; // 4 hours
             
             if (authUser.authId === session.user.id && isRecent) {
               console.log('Using cached user data');

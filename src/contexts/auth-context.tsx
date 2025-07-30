@@ -104,8 +104,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         console.log('Auth state changed:', event, session?.user?.email);
         
-        // Reset loading state when auth state changes
-        setIsLoading(true);
+        // Handle different auth events appropriately
+        if (event === 'TOKEN_REFRESHED') {
+          // For token refresh, silently update user data without showing loading
+          if (session?.user && isComponentMounted) {
+            try {
+              // Use cached data only to avoid database calls during token refresh
+              const cached = AuthService.getCurrentUserFromCache();
+              if (cached && cached.authId === session.user.id) {
+                // Update cache timestamp to keep it fresh
+                const updatedUser = {
+                  ...cached,
+                  lastFetched: Date.now()
+                };
+                setUser(updatedUser);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('shoppingbird_auth_user', JSON.stringify(updatedUser));
+                }
+                console.log('Token refreshed, cache updated silently');
+              }
+            } catch (error) {
+              console.error('Error during token refresh user update:', error);
+              // Don't fail on token refresh errors, keep current user state
+            }
+          }
+          return; // Exit early, don't change loading state
+        }
+        
+        // For other auth events, show loading only when necessary
+        const shouldShowLoading = event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED';
+        if (shouldShowLoading) {
+          setIsLoading(true);
+        }
         
         try {
           if (session?.user) {
@@ -131,7 +161,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setUser(null);
           }
         } finally {
-          if (isComponentMounted) {
+          // Only set loading to false if we set it to true
+          if (isComponentMounted && shouldShowLoading) {
             setIsLoading(false);
           }
         }

@@ -12,15 +12,21 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const [showEmergencyOption, setShowEmergencyOption] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+    
+    // Track if we've successfully loaded once
+    if (!isLoading && isAuthenticated && !hasLoadedOnce) {
+      setHasLoadedOnce(true);
+    }
+  }, [isAuthenticated, isLoading, router, hasLoadedOnce]);
 
   // Safety net: Show emergency options after extended loading
   useEffect(() => {
@@ -44,7 +50,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     router.push('/login');
   };
 
-  if (isLoading) {
+  // Only show loading screen if we haven't loaded successfully before or if user is explicitly null
+  // This prevents the loading screen from showing during token refreshes
+  if (isLoading && (!hasLoadedOnce || user === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-[350px]">
