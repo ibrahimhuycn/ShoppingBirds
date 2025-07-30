@@ -211,18 +211,78 @@ export class AuthService {
     const maxRetries = 2;
     let retryCount = 0;
     
+    // Debug Supabase client state
+    console.log('🧪 Debug Supabase client state:', {
+      hasSupabase: !!supabase,
+      supabaseUrl: supabase?.supabaseUrl,
+      isClientSide: typeof window !== 'undefined',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
+    });
+    
     while (retryCount <= maxRetries) {
       try {
         console.log(`Getting current user (attempt ${retryCount + 1}/${maxRetries + 1})`);
         
+        // Check localStorage first for debugging
+        if (typeof window !== 'undefined') {
+          console.log('🔍 LocalStorage check:', {
+            hasAuthUser: !!localStorage.getItem(this.STORAGE_KEY),
+            hasSupabaseToken: !!localStorage.getItem('sb-pgvjxrivrxshxlwiznkn-auth-token'),
+            allKeys: Object.keys(localStorage).filter(k => k.includes('auth') || k.includes('supabase') || k.includes('sb-')),
+            localStorageLength: localStorage.length
+          });
+        }
+        
+        // Check if supabase auth is ready
+        try {
+          console.log('📝 Checking Supabase auth state...');
+          const authState = supabase.auth;
+          console.log('📝 Auth client info:', {
+            hasAuth: !!authState,
+            authMethods: authState ? Object.getOwnPropertyNames(authState) : [],
+          });
+        } catch (authCheckError) {
+          console.error('❌ Error checking Supabase auth client:', authCheckError);
+        }
+        
         // Get session with longer timeout for first attempt, shorter for retries
         const sessionTimeout = retryCount === 0 ? 15000 : 8000;
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Session check timeout')), sessionTimeout)
-        );
+        console.log(`🕐 Starting session check with ${sessionTimeout}ms timeout...`);
         
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          const timeoutId = setTimeout(() => {
+            console.error(`❌ Session check timed out after ${sessionTimeout}ms`);
+            reject(new Error('Session check timeout'));
+          }, sessionTimeout);
+          
+          // Log progress every 3 seconds to reduce spam
+          const progressInterval = setInterval(() => {
+            console.log(`⏳ Session check still in progress... (timeout in ${Math.floor((sessionTimeout - (Date.now() % sessionTimeout)) / 1000)}s)`);
+          }, 3000);
+          
+          // Clear interval when promise resolves
+          sessionPromise.then(() => {
+            clearTimeout(timeoutId);
+            clearInterval(progressInterval);
+          }).catch(() => {
+            clearTimeout(timeoutId);
+            clearInterval(progressInterval);
+          });
+        });
+        
+        console.log('🚀 Calling supabase.auth.getSession()...');
+        const sessionStart = Date.now();
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+        const sessionDuration = Date.now() - sessionStart;
+        
+        console.log(`✅ Session check completed in ${sessionDuration}ms:`, {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userEmail: session?.user?.email,
+          sessionValid: session?.expires_at ? new Date(session.expires_at * 1000) > new Date() : false,
+          expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null
+        });
         
         if (!session?.user) {
           // Only clear localStorage if we're sure there's no session

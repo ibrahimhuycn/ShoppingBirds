@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AuthService, AuthUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -29,10 +30,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Initialize auth state with improved error handling
     const initializeAuth = async () => {
-      if (!isComponentMounted || isInitializing) return;
+      if (!isComponentMounted || isInitializing) {
+        console.log('🚨 Skipping auth initialization:', { isComponentMounted, isInitializing });
+        return;
+      }
       
       isInitializing = true;
-      console.log('Auth initialization starting...');
+      console.log('🚀 Auth initialization starting...');
+      console.log('🔍 Environment check:', {
+        isClient: typeof window !== 'undefined',
+        hasLocalStorage: typeof localStorage !== 'undefined',
+        hasSupabase: typeof supabase !== 'undefined',
+        timestamp: new Date().toISOString()
+      });
       
       try {
         const currentUser = await AuthService.getCurrentUser();
@@ -63,9 +73,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth state changes with improved error handling
     const { data: { subscription } } = AuthService.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        if (!isComponentMounted || isInitializing) return;
+        console.log('🔔 Auth state change event received:', {
+          event,
+          hasSession: !!session,
+          userEmail: session?.user?.email,
+          isComponentMounted,
+          isInitializing,
+          timestamp: new Date().toISOString()
+        });
         
-        console.log('Auth state changed:', event, session?.user?.email);
+        if (!isComponentMounted || isInitializing) {
+          console.log('🚨 Skipping auth state change:', { isComponentMounted, isInitializing });
+          return;
+        }
         
         // Handle different auth events appropriately
         if (event === 'TOKEN_REFRESHED') {
