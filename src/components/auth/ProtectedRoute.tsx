@@ -16,30 +16,33 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const [showEmergencyOption, setShowEmergencyOption] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !isNavigating) {
+      setIsNavigating(true);
       router.push('/login');
     }
     
     // Track if we've successfully loaded once
     if (!isLoading && isAuthenticated && !hasLoadedOnce) {
       setHasLoadedOnce(true);
+      setIsNavigating(false);
     }
-  }, [isAuthenticated, isLoading, router, hasLoadedOnce]);
+  }, [isAuthenticated, isLoading, router, hasLoadedOnce, isNavigating]);
 
   // Safety net: Show emergency options after extended loading
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading && (!hasLoadedOnce || user === null)) {
       const timer = setTimeout(() => {
         setShowEmergencyOption(true);
-      }, 15000); // Show after 15 seconds of loading
+      }, 20000); // Show after 20 seconds of loading
 
       return () => clearTimeout(timer);
     } else {
       setShowEmergencyOption(false);
     }
-  }, [isLoading]);
+  }, [isLoading, hasLoadedOnce, user]);
 
   const handleEmergencyLogin = () => {
     // Clear all auth data and redirect to login

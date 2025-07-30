@@ -25,71 +25,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     let isComponentMounted = true;
-    let initializationAttempts = 0;
-    const maxInitializationAttempts = 3;
-    let initializationTimeout: NodeJS.Timeout | null = null;
+    let isInitializing = false;
 
-    // Initialize auth state with better error handling and timeout
+    // Initialize auth state with improved error handling
     const initializeAuth = async () => {
-      if (!isComponentMounted) return;
+      if (!isComponentMounted || isInitializing) return;
       
-      initializationAttempts += 1;
-      console.log(`Auth initialization attempt ${initializationAttempts}/${maxInitializationAttempts}`);
+      isInitializing = true;
+      console.log('Auth initialization starting...');
       
       try {
-        // Set a hard timeout for the entire initialization process
-        const initPromise = AuthService.getCurrentUser();
-        const timeoutPromise = new Promise<AuthUser | null>((_, reject) => {
-          initializationTimeout = setTimeout(() => {
-            reject(new Error('Auth initialization timeout'));
-          }, 15000); // 15 second timeout for initialization
-        });
-
-        const currentUser = await Promise.race([initPromise, timeoutPromise]);
-        
-        if (initializationTimeout) {
-          clearTimeout(initializationTimeout);
-          initializationTimeout = null;
-        }
+        const currentUser = await AuthService.getCurrentUser();
 
         if (isComponentMounted) {
           setUser(currentUser);
           console.log('Auth initialized successfully:', currentUser?.email || 'No user');
         }
       } catch (error) {
-        console.error(`Auth initialization error (attempt ${initializationAttempts}):`, error);
-        
-        if (initializationTimeout) {
-          clearTimeout(initializationTimeout);
-          initializationTimeout = null;
-        }
+        console.error('Auth initialization error:', error);
 
         if (isComponentMounted) {
-          // If we've exceeded max attempts or it's a critical error, clear auth state
-          if (initializationAttempts >= maxInitializationAttempts || 
-              (error instanceof Error && error.message.includes('timeout'))) {
-            console.log('Max initialization attempts reached or timeout, clearing auth state');
-            setUser(null);
-            // Clear any stale session data
-            try {
-              await AuthService.clearSession();
-            } catch (clearError) {
-              console.error('Error clearing session:', clearError);
-            }
-          } else {
-            // Retry after a short delay
-            setTimeout(() => {
-              if (isComponentMounted) {
-                initializeAuth();
-                return; // Don't set loading to false yet
-              }
-            }, 2000);
-            return; // Don't set loading to false yet
-          }
+          // Don't clear session data unless we're certain it's invalid
+          // The improved AuthService will handle fallbacks appropriately
+          setUser(null);
         }
       } finally {
         if (isComponentMounted) {
           setIsLoading(false);
+          isInitializing = false;
         }
       }
     };
@@ -97,10 +60,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Start initialization
     initializeAuth();
 
-    // Listen for auth state changes with better error handling
+    // Listen for auth state changes with improved error handling
     const { data: { subscription } } = AuthService.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        if (!isComponentMounted) return;
+        if (!isComponentMounted || isInitializing) return;
         
         console.log('Auth state changed:', event, session?.user?.email);
         
@@ -131,17 +94,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return; // Exit early, don't change loading state
         }
         
-        // For other auth events, show loading only when necessary
-        const shouldShowLoading = event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED';
+        // Prevent multiple simultaneous auth state changes from interfering
+        if (isInitializing) {
+          console.log('Skipping auth state change - initialization in progress');
+          return;
+        }
+        
+        // For other auth events, show loading only when necessary and current user is null
+        const shouldShowLoading = (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED');
         if (shouldShowLoading) {
           setIsLoading(true);
         }
         
         try {
           if (session?.user) {
-            // Reset initialization attempts on successful auth state change
-            initializationAttempts = 0;
-            
             const currentUser = await AuthService.getCurrentUser();
             if (isComponentMounted) {
               setUser(currentUser);
@@ -158,7 +124,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } catch (error) {
           console.error('Error handling auth state change:', error);
           if (isComponentMounted) {
-            setUser(null);
+            // Don't immediately set user to null, let the auth service handle fallbacks
+            const cached = AuthService.getCurrentUserFromCache();
+            if (!cached) {
+              setUser(null);
+            }
           }
         } finally {
           // Only set loading to false if we set it to true
@@ -172,9 +142,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Cleanup function
     return () => {
       isComponentMounted = false;
-      if (initializationTimeout) {
-        clearTimeout(initializationTimeout);
-      }
+      isInitializing = false;
       subscription.unsubscribe();
     };
   }, []);
