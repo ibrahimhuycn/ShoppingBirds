@@ -23,6 +23,12 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const userRef = useRef<AuthUser | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     let isComponentMounted = true;
@@ -79,6 +85,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           userEmail: session?.user?.email,
           isComponentMounted,
           isInitializing,
+          hasCurrentUser: !!userRef.current,
+          currentUserEmail: userRef.current?.email,
+          currentUserAuthId: userRef.current?.authId,
+          sessionUserId: session?.user?.id,
           timestamp: new Date().toISOString()
         });
         
@@ -121,21 +131,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         // Check if we already have valid cached user data to avoid unnecessary calls
-        if (session?.user && user) {
+        const currentUser = userRef.current;
+        if (session?.user && currentUser && currentUser.authId) {
           // We already have a user and session is valid, check if they match
-          if (user.authId === session.user.id) {
-            console.log('🚀 Skipping getCurrentUser - already have valid user for this session:', {
+          const sessionUserId = session.user.id;
+          const currentUserAuthId = currentUser.authId;
+          
+          console.log('🔍 Auth ID comparison:', {
+            event,
+            sessionUserId,
+            currentUserAuthId,
+            isMatch: sessionUserId === currentUserAuthId,
+            userEmail: currentUser.email,
+            sessionEmail: session.user.email
+          });
+          
+          if (currentUserAuthId === sessionUserId) {
+            console.log('🚀 SKIPPING getCurrentUser - already have valid user for this session:', {
               event,
-              userEmail: user.email,
+              userEmail: currentUser.email,
               sessionEmail: session.user.email,
-              authIdMatch: user.authId === session.user.id
+              authIdMatch: true
             });
             return; // Skip the call entirely
           }
+        } else {
+          console.log('🤔 Cannot skip - missing data:', {
+            hasSession: !!session?.user,
+            hasUser: !!currentUser,
+            hasAuthId: !!currentUser?.authId,
+            event
+          });
         }
         
         // For other auth events, show loading only when absolutely necessary
-        const shouldShowLoading = (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') && !user;
+        const shouldShowLoading = (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') && !currentUser;
         if (shouldShowLoading) {
           setIsLoading(true);
         }
@@ -145,12 +175,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.log('💫 Processing auth state change for logged in user:', {
               event,
               userEmail: session.user.email,
-              hasExistingUser: !!user
+              hasExistingUser: !!currentUser
             });
             
-            const currentUser = await AuthService.getCurrentUser();
+            const fetchedUser = await AuthService.getCurrentUser();
             if (isComponentMounted) {
-              setUser(currentUser);
+              setUser(fetchedUser);
             }
           } else {
             console.log('💫 Processing auth state change for signed out user');
