@@ -205,9 +205,64 @@ export class AuthService {
   }
 
   /**
+   * Check if we have valid cached auth data that can bypass Supabase session check
+   */
+  private static hasValidCachedAuth(): { user: AuthUser | null; isValid: boolean } {
+    if (typeof window === 'undefined') {
+      return { user: null, isValid: false };
+    }
+
+    try {
+      // Check for both our auth user and Supabase token
+      const storedUser = localStorage.getItem(this.STORAGE_KEY);
+      const supabaseToken = localStorage.getItem('sb-pgvjxrivrxshxlwiznkn-auth-token');
+      
+      if (!storedUser || !supabaseToken) {
+        return { user: null, isValid: false };
+      }
+
+      const authUser = JSON.parse(storedUser);
+      const tokenData = JSON.parse(supabaseToken);
+      
+      // Check if token is still valid (not expired)
+      const now = Date.now() / 1000; // Convert to seconds
+      const isTokenValid = tokenData?.expires_at ? tokenData.expires_at > now : false;
+      
+      // Check if our cached user data is recent (within 2 hours)
+      const userDataAge = authUser?.lastFetched ? (Date.now() - authUser.lastFetched) : Infinity;
+      const isUserDataRecent = userDataAge < 2 * 60 * 60 * 1000; // 2 hours
+      
+      const isValid = isTokenValid && isUserDataRecent;
+      
+      console.log('🔍 Cached auth check:', {
+        hasStoredUser: !!storedUser,
+        hasSupabaseToken: !!supabaseToken,
+        isTokenValid,
+        userDataAge: Math.floor(userDataAge / 1000),
+        isUserDataRecent,
+        isValid
+      });
+      
+      return { user: isValid ? authUser : null, isValid };
+    } catch (error) {
+      console.error('Error checking cached auth:', error);
+      return { user: null, isValid: false };
+    }
+  }
+
+  /**
    * Internal method that does the actual work of getting the current user
    */
   private static async _getCurrentUserInternal(): Promise<AuthUser | null> {
+    // First, check if we have valid cached auth data to avoid problematic getSession() calls
+    const cachedAuth = this.hasValidCachedAuth();
+    if (cachedAuth.isValid && cachedAuth.user) {
+      console.log('✅ Using valid cached auth data, skipping Supabase session check');
+      return cachedAuth.user;
+    }
+    
+    console.log('🔄 Cached auth not valid, proceeding with Supabase session check');
+    
     const maxRetries = 2;
     let retryCount = 0;
     
@@ -233,178 +288,62 @@ export class AuthService {
           });
         }
         
-        // Check if supabase auth is ready
+        // Try a much shorter timeout first to see if getSession() is responsive
+        const quickTimeout = 2000; // 2 seconds
+        console.log(`🕐 Quick session check with ${quickTimeout}ms timeout...`);
+        
+        const quickSessionPromise = supabase.auth.getSession();
+        const quickTimeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            console.warn(`⚠️ Quick session check timed out, getSession() appears blocked`);
+            reject(new Error('Quick session check timeout'));
+          }, quickTimeout);
+        });
+        
+        console.log('🚀 Calling supabase.auth.getSession() (quick check)...');
+        const quickStart = Date.now();
+        
         try {
-          console.log('📝 Checking Supabase auth state...');
-          const authState = supabase.auth;
-          console.log('📝 Auth client info:', {
-            hasAuth: !!authState,
-            authMethods: authState ? Object.getOwnPropertyNames(authState) : [],
+          const { data: { session } } = await Promise.race([quickSessionPromise, quickTimeoutPromise]);
+          const quickDuration = Date.now() - quickStart;
+          
+          console.log(`✅ Quick session check completed in ${quickDuration}ms:`, {
+            hasSession: !!session,
+            hasUser: !!session?.user,
+            userEmail: session?.user?.email,
+            sessionValid: session?.expires_at ? new Date(session.expires_at * 1000) > new Date() : false,
+            expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null
           });
-        } catch (authCheckError) {
-          console.error('❌ Error checking Supabase auth client:', authCheckError);
-        }
-        
-        // Get session with longer timeout for first attempt, shorter for retries
-        const sessionTimeout = retryCount === 0 ? 15000 : 8000;
-        console.log(`🕐 Starting session check with ${sessionTimeout}ms timeout...`);
-        
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          const timeoutId = setTimeout(() => {
-            console.error(`❌ Session check timed out after ${sessionTimeout}ms`);
-            reject(new Error('Session check timeout'));
-          }, sessionTimeout);
           
-          // Log progress every 3 seconds to reduce spam
-          const progressInterval = setInterval(() => {
-            console.log(`⏳ Session check still in progress... (timeout in ${Math.floor((sessionTimeout - (Date.now() % sessionTimeout)) / 1000)}s)`);
-          }, 3000);
+          // Success! Continue with normal flow
+          return await this.processSessionResult(session, retryCount, maxRetries);
+        } catch (quickError) {
+          // Quick check failed, try fallback strategies
+          console.log('🚨 Quick session check failed, trying fallback strategies...');
           
-          // Clear interval when promise resolves
-          sessionPromise.then(() => {
-            clearTimeout(timeoutId);
-            clearInterval(progressInterval);
-          }).catch(() => {
-            clearTimeout(timeoutId);
-            clearInterval(progressInterval);
-          });
-        });
-        
-        console.log('🚀 Calling supabase.auth.getSession()...');
-        const sessionStart = Date.now();
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
-        const sessionDuration = Date.now() - sessionStart;
-        
-        console.log(`✅ Session check completed in ${sessionDuration}ms:`, {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          userEmail: session?.user?.email,
-          sessionValid: session?.expires_at ? new Date(session.expires_at * 1000) > new Date() : false,
-          expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null
-        });
-        
-        if (!session?.user) {
-          // Only clear localStorage if we're sure there's no session
-          if (typeof window !== 'undefined' && retryCount === maxRetries) {
-            localStorage.removeItem(this.STORAGE_KEY);
+          // Strategy 1: Use cached data if available, even if slightly stale
+          if (cachedAuth.user) {
+            console.log('💾 Using slightly stale cached data as fallback');
+            return cachedAuth.user;
           }
-          return null;
-        }
-
-        // Try to get from localStorage first for performance
-        if (typeof window !== 'undefined') {
-          try {
-            const stored = localStorage.getItem(this.STORAGE_KEY);
-            if (stored) {
-              const authUser = JSON.parse(stored);
-              // Verify the auth ID matches and data is recent (within 6 hours for better UX)
-              const now = Date.now();
-              const storedTime = authUser.lastFetched || 0;
-              const isRecent = now - storedTime < 6 * 60 * 60 * 1000; // 6 hours
-              
-              if (authUser.authId === session.user.id && isRecent) {
-                console.log('Using cached user data');
-                return authUser;
-              }
-            }
-          } catch (error) {
-            console.error('Error reading stored user:', error);
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem(this.STORAGE_KEY);
-            }
-          }
-        }
-
-        // Fetch from database if not in localStorage or ID mismatch
-        if (!session.user.email) {
-          console.error('No email found in session');
-          return this.createFallbackUser(session.user);
-        }
-
-        console.log('Fetching user data from database for:', session.user.email);
-        
-        // Database query with appropriate timeout
-        const dbTimeout = retryCount === 0 ? 15000 : 8000;
-        const dbQueryPromise = supabase
-          .from('users')
-          .select('*')
-          .eq('email', session.user.email)
-          .single();
           
-        const dbTimeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Database query timeout')), dbTimeout)
-        );
-        
-        let { data: userData, error } = await Promise.race([dbQueryPromise, dbTimeoutPromise]);
-
-        // If user profile doesn't exist, create it automatically
-        if (error && error.code === 'PGRST116') { // No rows returned
-          console.log('Creating missing user profile for:', session.user.email);
+          // Strategy 2: Try to reconstruct auth from localStorage tokens directly
+          const fallbackUser = await this.reconstructUserFromStorage();
+          if (fallbackUser) {
+            console.log('⚙️ Successfully reconstructed user from storage');
+            return fallbackUser;
+          }
           
-          const defaultUserData = {
-            email: session.user.email,
-            username: session.user.email.split('@')[0], // Default username from email
-            full_name: session.user.user_metadata?.full_name || '',
-            phone: session.user.user_metadata?.phone || '',
-            password_hash: '', // Not needed with Supabase Auth
-            is_store_employee: false,
-            require_password_change: false,
-          };
-
-          const createPromise = supabase
-            .from('users')
-            .insert(defaultUserData)
-            .select()
-            .single();
-            
-          const createTimeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('User creation timeout')), 10000)
-          );
-
-          const { data: newUser, error: createError } = await Promise.race([createPromise, createTimeoutPromise]);
-
-          if (createError) {
-            console.error('Failed to create user profile:', createError);
-            // Return a fallback user to prevent infinite loading
-            return this.createFallbackUser(session.user);
+          // Strategy 3: If this is a retry, give up to prevent infinite hanging
+          if (retryCount > 0) {
+            console.log('🚨 Multiple attempts failed, clearing potentially corrupted session');
+            await this.clearSession();
+            return null;
           }
-
-          userData = newUser;
-        } else if (error) {
-          // For database errors, throw to trigger retry instead of falling back immediately
-          if (retryCount < maxRetries) {
-            throw error;
-          }
-          console.error('Database error getting user (final attempt):', error);
-          // Return a fallback user to prevent infinite loading
-          return this.createFallbackUser(session.user);
+          
+          // For first attempt, try one more time with longer timeout
+          throw quickError;
         }
-
-        if (!userData) {
-          console.error('No user data found');
-          return this.createFallbackUser(session.user);
-        }
-
-        const authUser: AuthUser = {
-          id: userData.id,
-          username: userData.username,
-          email: userData.email,
-          fullName: userData.full_name,
-          phone: userData.phone,
-          isStoreEmployee: userData.is_store_employee,
-          requirePasswordChange: userData.require_password_change,
-          authId: userData.auth_id || session.user.id,
-          lastFetched: Date.now(), // Add timestamp for cache validation
-        };
-
-        // Update localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(authUser));
-        }
-
-        console.log('Successfully loaded user:', authUser.email);
-        return authUser;
         
       } catch (error) {
         console.error(`Error in getCurrentUser (attempt ${retryCount + 1}):`, error);
@@ -418,26 +357,225 @@ export class AuthService {
           continue;
         }
         
-        // Final attempt failed - try to get a basic fallback from session if available
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            console.log('Using fallback user after all retries failed');
-            return this.createFallbackUser(session.user);
-          }
-        } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError);
+        // Final attempt failed - use fallback strategies
+        console.log('🚨 All attempts failed, using final fallback strategies...');
+        
+        // Try cached data one more time, even if stale
+        if (cachedAuth.user) {
+          console.log('💾 Using stale cached data as last resort');
+          return cachedAuth.user;
         }
         
-        // Only clear localStorage on final failure if we're certain there's an issue
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(this.STORAGE_KEY);
+        // Try storage reconstruction as final fallback
+        const fallbackUser = await this.reconstructUserFromStorage();
+        if (fallbackUser) {
+          console.log('⚙️ Successfully reconstructed user as final fallback');
+          return fallbackUser;
         }
+        
+        // Clear potentially corrupted session data
+        console.log('🧼 Clearing potentially corrupted session data');
+        await this.clearSession();
         return null;
       }
     }
     
     return null; // Should never reach here
+  }
+
+  /**
+   * Try to reconstruct user from localStorage tokens without using getSession()
+   */
+  private static async reconstructUserFromStorage(): Promise<AuthUser | null> {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      console.log('🔧 Attempting to reconstruct user from localStorage...');
+      
+      const supabaseToken = localStorage.getItem('sb-pgvjxrivrxshxlwiznkn-auth-token');
+      if (!supabaseToken) {
+        console.log('❌ No Supabase token found in storage');
+        return null;
+      }
+
+      const tokenData = JSON.parse(supabaseToken);
+      const accessToken = tokenData?.access_token;
+      const userEmail = tokenData?.user?.email;
+      
+      if (!accessToken || !userEmail) {
+        console.log('❌ Invalid token data structure');
+        return null;
+      }
+
+      // Check if token is still valid
+      const now = Date.now() / 1000;
+      const isTokenValid = tokenData?.expires_at ? tokenData.expires_at > now : false;
+      
+      if (!isTokenValid) {
+        console.log('❌ Token is expired');
+        return null;
+      }
+
+      console.log('🚀 Token is valid, fetching user from database directly...');
+      
+      // Fetch user directly from database using the email
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', userEmail)
+        .single();
+
+      if (error || !userData) {
+        console.error('❌ Failed to fetch user from database:', error);
+        return null;
+      }
+
+      const authUser: AuthUser = {
+        id: userData.id,
+        username: userData.username,
+        email: userData.email,
+        fullName: userData.full_name,
+        phone: userData.phone,
+        isStoreEmployee: userData.is_store_employee,
+        requirePasswordChange: userData.require_password_change,
+        authId: userData.auth_id || tokenData.user.id,
+        lastFetched: Date.now(),
+      };
+
+      // Store in localStorage
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(authUser));
+      
+      console.log('✅ Successfully reconstructed user from storage');
+      return authUser;
+    } catch (error) {
+      console.error('❌ Error reconstructing user from storage:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Process session result and handle user data fetching
+   */
+  private static async processSessionResult(session: any, retryCount: number, maxRetries: number): Promise<AuthUser | null> {
+    if (!session?.user) {
+      // Only clear localStorage if we're sure there's no session
+      if (typeof window !== 'undefined' && retryCount === maxRetries) {
+        localStorage.removeItem(this.STORAGE_KEY);
+      }
+      return null;
+    }
+
+    // Try to get from localStorage first for performance
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(this.STORAGE_KEY);
+        if (stored) {
+          const authUser = JSON.parse(stored);
+          // Verify the auth ID matches and data is recent (within 6 hours for better UX)
+          const now = Date.now();
+          const storedTime = authUser.lastFetched || 0;
+          const isRecent = now - storedTime < 6 * 60 * 60 * 1000; // 6 hours
+          
+          if (authUser.authId === session.user.id && isRecent) {
+            console.log('Using cached user data');
+            return authUser;
+          }
+        }
+      } catch (error) {
+        console.error('Error reading stored user:', error);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(this.STORAGE_KEY);
+        }
+      }
+    }
+
+    // Fetch from database if not in localStorage or ID mismatch
+    if (!session.user.email) {
+      console.error('No email found in session');
+      return this.createFallbackUser(session.user);
+    }
+
+    console.log('Fetching user data from database for:', session.user.email);
+    
+    // Database query with appropriate timeout
+    const dbTimeout = retryCount === 0 ? 15000 : 8000;
+    const dbQueryPromise = supabase
+      .from('users')
+      .select('*')
+      .eq('email', session.user.email)
+      .single();
+      
+    const dbTimeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Database query timeout')), dbTimeout)
+    );
+    
+    let { data: userData, error } = await Promise.race([dbQueryPromise, dbTimeoutPromise]);
+
+    // If user profile doesn't exist, create it automatically
+    if (error && error.code === 'PGRST116') { // No rows returned
+      console.log('Creating missing user profile for:', session.user.email);
+      
+      const defaultUserData = {
+        email: session.user.email,
+        username: session.user.email.split('@')[0], // Default username from email
+        full_name: session.user.user_metadata?.full_name || '',
+        phone: session.user.user_metadata?.phone || '',
+        password_hash: '', // Not needed with Supabase Auth
+        is_store_employee: false,
+        require_password_change: false,
+      };
+
+      const createPromise = supabase
+        .from('users')
+        .insert(defaultUserData)
+        .select()
+        .single();
+        
+      const createTimeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('User creation timeout')), 10000)
+      );
+
+      const { data: newUser, error: createError } = await Promise.race([createPromise, createTimeoutPromise]);
+
+      if (createError) {
+        console.error('Failed to create user profile:', createError);
+        // Return a fallback user to prevent infinite loading
+        return this.createFallbackUser(session.user);
+      }
+
+      userData = newUser;
+    } else if (error) {
+      console.error('Database error getting user:', error);
+      // Return a fallback user to prevent infinite loading
+      return this.createFallbackUser(session.user);
+    }
+
+    if (!userData) {
+      console.error('No user data found');
+      return this.createFallbackUser(session.user);
+    }
+
+    const authUser: AuthUser = {
+      id: userData.id,
+      username: userData.username,
+      email: userData.email,
+      fullName: userData.full_name,
+      phone: userData.phone,
+      isStoreEmployee: userData.is_store_employee,
+      requirePasswordChange: userData.require_password_change,
+      authId: userData.auth_id || session.user.id,
+      lastFetched: Date.now(), // Add timestamp for cache validation
+    };
+
+    // Update localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(authUser));
+    }
+
+    console.log('Successfully loaded user:', authUser.email);
+    return authUser;
   }
 
   /**
