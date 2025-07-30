@@ -120,19 +120,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
         
-        // For other auth events, show loading only when necessary and current user is null
-        const shouldShowLoading = (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED');
+        // Check if we already have valid cached user data to avoid unnecessary calls
+        if (session?.user && user) {
+          // We already have a user and session is valid, check if they match
+          if (user.authId === session.user.id) {
+            console.log('🚀 Skipping getCurrentUser - already have valid user for this session:', {
+              event,
+              userEmail: user.email,
+              sessionEmail: session.user.email,
+              authIdMatch: user.authId === session.user.id
+            });
+            return; // Skip the call entirely
+          }
+        }
+        
+        // For other auth events, show loading only when absolutely necessary
+        const shouldShowLoading = (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') && !user;
         if (shouldShowLoading) {
           setIsLoading(true);
         }
         
         try {
           if (session?.user) {
+            console.log('💫 Processing auth state change for logged in user:', {
+              event,
+              userEmail: session.user.email,
+              hasExistingUser: !!user
+            });
+            
             const currentUser = await AuthService.getCurrentUser();
             if (isComponentMounted) {
               setUser(currentUser);
             }
           } else {
+            console.log('💫 Processing auth state change for signed out user');
             if (isComponentMounted) {
               setUser(null);
               // Clear localStorage when signed out
