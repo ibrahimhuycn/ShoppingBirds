@@ -280,7 +280,8 @@ export default function POSPage() {
   }
 
   const updateQuantity = (itemId: number, newQuantity: number): void => {
-    if (newQuantity <= 0) {
+    // Remove item if quantity is 0, negative, or too small (less than 0.01)
+    if (newQuantity <= 0 || newQuantity < 0.01) {
       removeFromCart(itemId)
       return
     }
@@ -586,7 +587,7 @@ export default function POSPage() {
                             <span className="text-muted-foreground text-xs">Qty:</span>
                             <Input
                               type="number"
-                              min="1"
+                              min="0.01"
                               step="0.01"
                               value={item.quantity}
                               onChange={(e) => updateQuantity(item.id, parseFloat(e.target.value) || 0)}
